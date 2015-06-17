@@ -1,8 +1,3 @@
-__author__ = 'emanuel'
-
-import sys
-sys.path.extend(['/Users/emanuel/Projects/projects/pymist', '/Users/emanuel/Projects/projects/pymist/pymist'])
-
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -68,7 +63,7 @@ def plot_volcanos_results(f, d, genes_to_highlight, gene_column, title='', w=6, 
 
     print '[INFO] Volcano generated: ' + f
 
-organism = 1  # 0: human, 1: mouse
+organism = 0  # 0: human, 1: mouse
 
 wd = '/Users/emanuel/Projects/projects/pymist/resources/fh_cells/'
 

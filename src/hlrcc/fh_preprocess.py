@@ -1,14 +1,11 @@
-__author__ = 'emanuel'
-
 import numpy as np
 import seaborn as sns
 import matplotlib.pylab as plt
 from pandas import read_csv, DataFrame
-from utils.map_peptide_sequence import read_fasta, match_sequence, read_uniprot_accname, read_uniprot_genename
+from pymist.utils.map_peptide_sequence import read_fasta, match_sequence, read_uniprot_accname, read_uniprot_genename
 from sklearn.decomposition import PCA
 
 # Configure vars
-data_dir = '/Users/emanuel/Projects/data/fh_cells/'
 organism = ['human', 'mouse'][0]
 
 os = {'human': 'Homo sapiens', 'mouse': 'Mus musculus'}[organism]
@@ -79,17 +76,17 @@ tp = tp.replace(0.0, np.NaN)
 pp = pp.loc[(np.isnan(pp.ix[:, ss_pp_ko]).sum(axis=1) < 5) & (np.isnan(pp.ix[:, ss_pp_wt]).sum(axis=1) < 5), ]
 tp = tp.loc[(np.isnan(tp.ix[:, ss_tp_ko]).sum(axis=1) < 2) & (np.isnan(tp.ix[:, ss_tp_wt]).sum(axis=1) < 2), ]
 
-#### Log 2 transform
+# ---- Log 2 transform
 tp[ss_tp] = np.log2(tp[ss_tp])
 pp[ss_pp] = np.log2(pp[ss_pp])
 
-#### Scale replicates
+# ---- Scale replicates
 tp[ss_tp] = (tp[ss_tp] - tp[ss_tp].mean()) / tp[ss_tp].std()
 pp[ss_pp] = (pp[ss_pp] - pp[ss_pp].mean()) / pp[ss_pp].std()
 
-#### Export
+# ---- Export
 pp.to_csv(data_dir + pp_file_processed, sep='\t', index=False)
 tp.to_csv(data_dir + tp_file_processed, sep='\t', index=False)
 
-#### Verbose
+# ---- Verbose
 print '[INFO] Preprocess done!'
