@@ -1,9 +1,9 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pylab as plt
+from hlrcc import data_dir, wd
 from pandas import read_csv, DataFrame
 from pymist.utils.map_peptide_sequence import read_fasta, match_sequence, read_uniprot_accname, read_uniprot_genename
-from sklearn.decomposition import PCA
 
 # Configure vars
 organism = ['human', 'mouse'][0]
@@ -15,27 +15,27 @@ uniprot2genename = read_uniprot_genename(os=os)
 
 # Define files paths
 pp_file = {
-    'human': 'human_phosphoproteomics/b1368p100_phosho_human.tab',
-    'mouse': 'mouse_phosphoproteomics/b1368p100_phosho_mouse.tab'
+    'human': '/human_phosphoproteomics/b1368p100_phosho_human.tab',
+    'mouse': '/mouse_phosphoproteomics/b1368p100_phosho_mouse.tab'
 }[organism]
 
 tp_file = {
-    'human': 'human_proteomics/b1368p100_protein_human.tab',
-    'mouse': 'mouse_proteomics/b1368p100_protein_mouse.tab'
+    'human': '/human_proteomics/b1368p100_protein_human.tab',
+    'mouse': '/mouse_proteomics/b1368p100_protein_mouse.tab'
 }[organism]
 
 pp_file_processed = {
-    'human': 'human_phosphoproteomics/b1368p100_phosho_human_processed.tab',
-    'mouse': 'mouse_phosphoproteomics/b1368p100_phosho_mouse_processed.tab'
+    'human': '/human_phosphoproteomics/b1368p100_phosho_human_processed.tab',
+    'mouse': '/mouse_phosphoproteomics/b1368p100_phosho_mouse_processed.tab'
 }[organism]
 
 tp_file_processed = {
-    'human': 'human_proteomics/b1368p100_protein_human_processed.tab',
-    'mouse': 'mouse_proteomics/b1368p100_protein_mouse_processed.tab'
+    'human': '/human_proteomics/b1368p100_protein_human_processed.tab',
+    'mouse': '/mouse_proteomics/b1368p100_protein_mouse_processed.tab'
 }[organism]
 
-# Import samplesheet
-ss = read_csv(data_dir + 'fh_samplesheet.tab', sep='\t', index_col=0)
+# ---- Import samplesheet
+ss = read_csv(data_dir + '/fh_samplesheet.tab', sep='\t', index_col=0)
 ss = ss.loc[ss['organism'] == organism]
 
 ss_pp = list(ss[ss['type'] == 'pp'].index)
@@ -46,13 +46,13 @@ ss_tp = list(ss[ss['type'] == 'tp'].index)
 ss_tp_ko = list(ss[(ss['type'] == 'tp') & (ss['condition'] == 'fh_ko')].index)
 ss_tp_wt = list(ss[(ss['type'] == 'tp') & (ss['condition'] == 'fh_wt')].index)
 
-#### Import and preprocess phospho and proteomics data
+# ---- Import and preprocess phospho and proteomics data
 pp_all = read_csv(data_dir + pp_file, sep='\t')
 tp_all = read_csv(data_dir + tp_file, sep='\t')
 
 # Drop NaN on phospho sites and peptides
 pp_all = pp_all.dropna(subset=['peptide', 'site'])
-tp_all = tp_all.dropna(subset=['peptide'])
+tp_all = tp_all.dropna(subset=['peptide', 'uniprot'])
 
 # Assemble reduced data-set
 pp_columns = ['peptide', 'site', 'uniprot']
