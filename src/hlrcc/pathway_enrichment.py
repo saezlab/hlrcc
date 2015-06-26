@@ -3,7 +3,6 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from hlrcc import wd
-from scipy.stats.stats import pearsonr
 from statsmodels.stats.multitest import multipletests
 from pymist.enrichment.gsea import gsea
 from pandas import DataFrame, Series, read_csv
