@@ -1,7 +1,6 @@
 *.pyc
 .DS_Store
 files/*
-reports/*
 .idea
 gurobi.log
 *.sqlite

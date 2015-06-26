@@ -4,15 +4,9 @@ from pandas.stats.misc import zscore
 from hlrcc import data_dir, wd
 from pandas import read_csv
 
-# ---- Set-up variables
-organism = 'human'
-
-pp_file = 'human_phosphoproteomics/b1368p100_phosho_human.tab'
-pp_file_processed = 'files/b1368p100_phospho_human_processed.tsv'
-
 # ---- Import samplesheet
 ss = read_csv(data_dir + '/fh_samplesheet.tab', sep='\t', index_col=0)
-ss = ss.loc[np.bitwise_and(ss['organism'] == organism, ss['type'] == 'pp')]
+ss = ss.loc[np.bitwise_and(ss['organism'] == 'human', ss['type'] == 'pp')]
 
 ss_ko = ss[ss['condition'] == 'fh_ko'].index
 ss_wt = ss[ss['condition'] == 'fh_wt'].index
@@ -21,7 +15,7 @@ ss_wt = ss[ss['condition'] == 'fh_wt'].index
 # Import and process phospho
 info_columns = ['peptide', 'site', 'uniprot']
 
-pp_all = read_csv('%s/%s' % (data_dir, pp_file), sep='\t').dropna(subset=info_columns)
+pp_all = read_csv(wd + '/data/b1368p100_phosho_human.tab', sep='\t').dropna(subset=info_columns)
 pp = pp_all[np.concatenate((info_columns, ss.index))].replace(0.0, np.NaN)
 print '[INFO] phospho: ', pp.shape
 
@@ -52,5 +46,5 @@ print '[INFO] Average p-site phosphorylation: ', pp.shape
 
 # Export p-site level phosphoproteomics
 pp.columns = [ss.ix[i, 'condition'] for i in pp.columns]
-pp.to_csv('%s/%s' % (wd, pp_file_processed), sep='\t')
-print '[INFO] Export p-site level phosphoproteomics: %s' % pp_file_processed
+pp.to_csv(wd + '/data/b1368p100_phospho_human_processed.tsv', sep='\t')
+print '[INFO] Export p-site level phosphoproteomics'
