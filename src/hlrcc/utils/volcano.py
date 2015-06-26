@@ -56,6 +56,6 @@ def volcano(f, d, x_label, y_label, adj_p_value_label, title='', to_highlight=No
     # Save plot
     fig = plt.gcf()
     fig.set_size_inches(5., 8.)
-    fig.savefig(f)
+    fig.savefig(f, bbox_inches='tight')
 
     print '[INFO] Volcano generated: ' + f
