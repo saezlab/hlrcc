@@ -157,3 +157,8 @@ def draw_network(network2draw, path):
     print '[INFO] Network PDF saved!\n'
 
 draw_network(sub_network_weighted, wd + '/reports/signalling_regulatory_network.pdf')
+
+# ---- Specific site regulatory network
+site = 'P08559_S232'
+site_reg_network = network_i.subgraph(network_i.neighborhood(site, order=5, mode='IN')).spanning_tree('weight')
+draw_network(site_reg_network, wd + '/reports/signalling_regulatory_network_%s.pdf' % site)
