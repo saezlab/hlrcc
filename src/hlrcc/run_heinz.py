@@ -3,6 +3,7 @@ import pydot
 import igraph
 import numpy as np
 import seaborn as sns
+import subprocess
 import matplotlib.pyplot as plt
 from hlrcc import wd
 from bioservices import UniProt
@@ -82,8 +83,6 @@ print '[INFO] Sub-network largest component simplified: ', network_i.summary()
 subnetwork = network_i.components().giant()
 print '[INFO] Sub-network largest component: ', subnetwork.summary()
 
-# [subnetwork.vs[x]['name'] for x in subnetwork.get_all_shortest_paths('P00519', 'P08559')]
-
 # Export network to Heinz
 with open('%s/files/heinz_nodes.txt' % wd, 'w') as f:
     f.write('#node\tscore1\n')
@@ -91,8 +90,45 @@ with open('%s/files/heinz_nodes.txt' % wd, 'w') as f:
 
 with open('%s/files/heinz_edges.txt' % wd, 'w') as f:
     f.write('#nodeA\tnodeB\tscore1\n')
-    f.write('\n'.join(['%s\t%s\t0.0' % (network_i.vs[e.source]['name'], network_i.vs[e.target]['name']) for e in subnetwork.es]))
+    f.write('\n'.join(['%s\t%s\t0.0' % tuple(subnetwork.vs[[e.source, e.target]]['name']) for e in subnetwork.es]))
 
 print '[INFO] Network exported to Heinz'
 
-# 'heinz -e ', edges_file, ' -n ', nodes_file, ' -o ', result_file, ' -t 1500'
+# Run Heinz
+subprocess.call('heinz -e %s/files/heinz_edges.txt -n %s/files/heinz_nodes.txt -o %s/files/heinz_solution.txt -t 3000' % (wd, wd, wd), shell=True)
+print '[INFO] Heinz execution finished'
+
+# Read Heinz solution
+heinz_network = read_csv('%s/files/heinz_solution.txt' % wd, sep='\t')[:-1].dropna()
+heinz_network = subnetwork.subgraph(heinz_network['#label'])
+print '[INFO] Heinz active module: ', heinz_network.summary()
+
+with open('%s/files/heinz_solution.sif' % wd, 'w') as f:
+    f.write('\n'.join(['%s\tpp\t%s' % tuple(heinz_network.vs[[e.source, e.target]]['name']) for e in heinz_network.es]))
+
+print '[INFO] Heinz module exported'
+
+# [subnetwork.vs[x]['name'] for x in subnetwork.get_all_shortest_paths('P00519', 'P08559')]
+
+graph = pydot.Dot(graph_type='digraph', rankdir='LR')
+
+graph.set_node_defaults(fontcolor='white', penwidth='3')
+graph.set_edge_defaults(color='gray', arrowhead='vee')
+
+for edge in heinz_network.es:
+    source_id, target_id = heinz_network.vs[[edge.source, edge.target]]['name']
+
+    source = pydot.Node(source_id, style='filled', shape='box', penwidth='0')
+    target = pydot.Node(target_id, style='filled', shape='box', penwidth='0')
+
+    for node in [source, target]:
+        node.set_name(node.get_name())
+        graph.add_node(node)
+
+    edge = pydot.Edge(source, target)
+    graph.add_edge(edge)
+
+graph.write_pdf('%s/files/heinz_solution.pdf' % wd)
+print '[INFO] Network PDF saved!\n'
+
+# [heinz_network.vs[x]['name'] for x in heinz_network.get_all_shortest_paths('P00519', 'P08559')]
