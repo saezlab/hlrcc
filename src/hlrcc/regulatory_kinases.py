@@ -2,6 +2,7 @@ import re
 import pydot
 import igraph
 import numpy as np
+import itertools as it
 import seaborn as sns
 import matplotlib.pyplot as plt
 from hlrcc import wd
@@ -23,19 +24,30 @@ kinases_es = read_csv(wd + '/files/kinase_activity.tab', sep='\t', index_col=0, 
 enzymes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml').get_genes()
 
 # ---- Import Kinase/Substrate network
-c_info = ['KIN_ACC_ID', 'SUB_ACC_ID', 'SUB_MOD_RSD', 'KIN_ORGANISM', 'SUB_ORGANISM']
+# c_info = ['KIN_ACC_ID', 'SUB_ACC_ID', 'SUB_MOD_RSD', 'KIN_ORGANISM', 'SUB_ORGANISM']
+#
+# network = read_csv(wd + '/files/kinase_substrate_phosphositeplus.txt', sep='\t')[c_info]
+# network['SITE'] = network['SUB_ACC_ID'] + '_' + network['SUB_MOD_RSD']
+# print '[INFO] Kinase/substrate network: ', len(network)
+#
+# network = network[np.bitwise_and(network['KIN_ORGANISM'] == 'human', network['SUB_ORGANISM'] == 'human')]
+# print '[INFO] Kinase/substrate network, human: ', len(network)
+#
+# network = network[network['KIN_ACC_ID'] != network['SUB_ACC_ID']]
+# print '[INFO] Kinase/substrate network, human, no self-phosphorylations: ', len(network)
+#
+# vertices = list(set(network['KIN_ACC_ID']).union(network['SUB_ACC_ID']).union(network['SITE']))
 
-network = read_csv(wd + '/files/kinase_substrate_phosphositeplus.txt', sep='\t')[c_info]
-network['SITE'] = network['SUB_ACC_ID'] + '_' + network['SUB_MOD_RSD']
-print '[INFO] Kinase/substrate network: ', len(network)
+network = read_csv('/Users/emanuel/Projects/resources/signalling_models/KS_network.tab', sep='\t', header=0, dtype=str).dropna()
 
-network = network[np.bitwise_and(network['KIN_ORGANISM'] == 'human', network['SUB_ORGANISM'] == 'human')]
-print '[INFO] Kinase/substrate network, human: ', len(network)
+network = network[[not x.startswith('n') for x in network['SID']]]
 
-network = network[network['KIN_ACC_ID'] != network['SUB_ACC_ID']]
-print '[INFO] Kinase/substrate network, human, no self-phosphorylations: ', len(network)
+network = network[[s != k for s, k in network[['S.AC', 'K.AC']].values]]
 
-vertices = list(set(network['KIN_ACC_ID']).union(network['SUB_ACC_ID']).union(network['SITE']))
+network['SITE'] = network['S.AC'] + '_' + network['res'] + network['pos']
+
+vertices = list(set(network['K.AC']).union(network['S.AC']).union(network['SITE']))
+print '[INFO] network: ', network.shape
 
 # ---- Import uniprot Bioservice
 uniprot_bioservice = UniProt(cache=True)
@@ -75,7 +87,7 @@ print '[INFO] Kinase/Substrate network: ', network_i.summary()
 # Add edges
 edges, edges_names, edges_weights = [], [], []
 for i in network.index:
-    source, site, substrate = network.ix[i, 'KIN_ACC_ID'], network.ix[i, 'SITE'], network.ix[i, 'SUB_ACC_ID']
+    source, site, substrate = network.ix[i, 'K.AC'], network.ix[i, 'SITE'], network.ix[i, 'S.AC']
 
     edges.append((source, site))
     edges_names.append('%s -> %s' % (source, site))
@@ -95,7 +107,7 @@ network_i = network_i.simplify(True, True, 'first')
 print '[INFO] Kinase/Substrate network: ', network_i.summary()
 
 # ---- Sub-set network to differentially phosphorylated sites
-sub_network = network_i.subgraph({x for i in phospho_fc[phospho_fc.abs() > .5].index if i in vertices for x in network_i.neighborhood(i, order=5, mode='IN')})
+sub_network = network_i.subgraph({x for i in phospho_fc.index if i in vertices for x in network_i.neighborhood(i, order=5, mode='IN')})
 print '[INFO] Sub-network created: ', sub_network.summary()
 
 sub_network_nweighted = sub_network.copy()
@@ -112,42 +124,41 @@ def draw_network(network2draw, path):
     graph.set_node_defaults(fontcolor='white', penwidth='3')
     graph.set_edge_defaults(color='gray', arrowhead='vee')
 
-    freq_ecdf = ECDF(network2draw.es.get_attribute_values('weight'))
+    freq_ecdf = ECDF(network2draw.es['weight'])
 
-    for edge_index in network2draw.es.indices:
-        edge = network2draw.es[edge_index]
-
-        source_id, target_id = network2draw.vs[edge.source].attributes()['name'], network2draw.vs[edge.target].attributes()['name']
+    for edge in network2draw.es:
+        source_id, target_id = network2draw.vs[[edge.source, edge.target]]['name']
 
         source = pydot.Node(source_id, style='filled', shape='box', penwidth='0')
         target = pydot.Node(target_id, style='filled', shape='box', penwidth='0')
 
         for node in [source, target]:
-            node_name = node.get_name()
-            protein_name = uniprot2genename(node_name.split('_')[0])
+            if node.get_name() not in graph.obj_dict['nodes'].keys():
+                node_name = node.get_name()
+                protein_name = uniprot2genename(node_name.split('_')[0])
 
-            # Set node colour
-            if protein_name in enzymes:
-                node.set_fillcolor('#8EC127')
+                # Set node colour
+                if protein_name in enzymes:
+                    node.set_fillcolor('#8EC127')
 
-            elif node_name in phospho_fc.index:
-                node.set_fillcolor('#3498db')
+                elif node_name in phospho_fc.index:
+                    node.set_fillcolor('#3498db')
 
-            elif node_name in kinases_es:
-                node.set_fillcolor('#BB3011')
+                elif node_name in kinases_es:
+                    node.set_fillcolor('#BB3011')
 
-            # Set node name
-            if len(node_name.split('_')) == 2:
-                node_name, res = node_name.split('_')
-                node.set_name((protein_name if protein_name != '' else node_name) + '_' + res)
+                # Set node name
+                if len(node_name.split('_')) == 2:
+                    node_name, res = node_name.split('_')
+                    node.set_name((protein_name if protein_name != '' else node_name) + '_' + res)
 
-            else:
-                node.set_name(protein_name if protein_name != '' else node_name)
+                else:
+                    node.set_name(protein_name if protein_name != '' else node_name)
 
-            graph.add_node(node)
+                graph.add_node(node)
 
         # Set edge width
-        edge_width = str((1 - freq_ecdf(network2draw.es[edge_index].attributes()['weight'])) * 5 + 1)
+        edge_width = str((1 - freq_ecdf(edge['weight'])) * 5 + 1)
 
         edge = pydot.Edge(source, target, penwidth=edge_width)
         graph.add_edge(edge)
@@ -159,5 +170,15 @@ draw_network(sub_network_weighted, wd + '/reports/signalling_regulatory_network.
 
 # ---- Specific site regulatory network
 site = 'P08559_S232'
-site_reg_network = network_i.subgraph(network_i.neighborhood(site, order=5, mode='IN')).spanning_tree('weight')
+site_reg_network = network_i.subgraph(network_i.neighborhood(site, order=4, mode='IN'))
 draw_network(site_reg_network, wd + '/reports/signalling_regulatory_network_%s.pdf' % site)
+print '[INFO] Site specific regulatory network: ', site_reg_network.summary()
+
+# ABL2: P42684, LASP1: Q14847
+# P00519, P42684_Y261
+# P00519, Q14847_Y171
+
+print network_i.get_eid('P00519', 'P42684_Y261')
+print network_i.get_eid('P00519', 'Q14847_Y171')
+
+print [sub_network_weighted.vs[x]['name'] for x in sub_network_weighted.get_all_shortest_paths('P00519', 'P08559_S232', weights='weight')]
