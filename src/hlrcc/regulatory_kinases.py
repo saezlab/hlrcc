@@ -5,7 +5,6 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from hlrcc import wd
-from hlrcc.figures.volcano_plots import get_fasta
 from bioservices import UniProt
 from pymist.reader.sbml_reader import read_sbml_model
 from statsmodels.distributions import ECDF
