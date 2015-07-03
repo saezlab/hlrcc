@@ -77,11 +77,16 @@ kinases_weights = {k: kinases_ecdf(kinases_es_abs.ix[k]) for k in kinases_es_abs
 phospho_ecdf = ECDF(phospho_fc_abs.values)
 phospho_weights = {k: phospho_ecdf(phospho_fc_abs.ix[k]) for k in phospho_fc_abs.index if k in vertices}
 
+# Vertices weights
+vertices_weights = kinases_weights.copy()
+vertices_weights.update(phospho_weights)
+
 # ---- Create network
 network_i = igraph.Graph(directed=True)
 
 # Add nodes
 network_i.add_vertices(vertices)
+network_i.vs['n_weight'] = [vertices_weights[v] if v in vertices_weights else np.NaN for v in vertices]
 print '[INFO] Kinase/Substrate network: ', network_i.summary()
 
 # Add edges
@@ -174,6 +179,36 @@ site_reg_network = network_i.subgraph(network_i.neighborhood(site, order=4, mode
 draw_network(site_reg_network, wd + '/reports/signalling_regulatory_network_%s.pdf' % site)
 print '[INFO] Site specific regulatory network: ', site_reg_network.summary()
 
+metabolic_sites = [i for i in phospho_fc.index if uniprot2genename(i.split('_')[0]) in enzymes]
+metabolic_sites = set(metabolic_sites).intersection(vertices)
+
+(f, grid), pos = plt.subplots(len(metabolic_sites), 1, figsize=(7, 7 * len(metabolic_sites))), 0
+for site in metabolic_sites:
+    ax = grid[pos]
+
+    neighbors = {x: set(network_i.vs[network_i.neighborhood(site, order=x, mode='IN')]['name']) for x in xrange(5)}
+    neighbors = {x: neighbors[x].difference(neighbors[x - 1]) for x in np.arange(1, 5)}
+    neighbors = {k: network_i.vs[network_i.get_shortest_paths(k, site, 'weight')[0]]['name'] for k in neighbors[3]}
+
+    if len(neighbors) > 0:
+        neighbors = [(k, s, network_i.vs.select(name=s)['n_weight'][0]) for k in neighbors for s in neighbors[k]]
+        neighbors = DataFrame(neighbors, columns=['kinase', 'site', 'value']).dropna()
+        neighbors['type'] = ['site' if len(s.split('_')) > 1 else 'kinase' for s in neighbors['site']]
+        neighbors = neighbors.sort('value', ascending=False)
+
+        sns.stripplot('value', 'kinase', data=neighbors, hue='type', jitter=True, edgecolor='gray', size=5, ax=ax)
+        sns.despine(ax=ax)
+        ax.set_title('site: %s' % site)
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+        pos += 1
+
+        print '[INFO] %s done' % site
+
+plt.savefig('%s/reports/regulatory_kinases.pdf' % wd, bbox_inches='tight')
+plt.close('all')
+print '[INFO] Regulatory kinases plotted!'
+
 # ABL2: P42684, LASP1: Q14847
 # P00519, P42684_Y261
 # P00519, Q14847_Y171
@@ -181,4 +216,6 @@ print '[INFO] Site specific regulatory network: ', site_reg_network.summary()
 print network_i.get_eid('P00519', 'P42684_Y261')
 print network_i.get_eid('P00519', 'Q14847_Y171')
 
-print [sub_network_weighted.vs[x]['name'] for x in sub_network_weighted.get_all_shortest_paths('P00519', 'P08559_S232', weights='weight')]
+print [network_i.vs[x]['name'] for x in network_i.get_all_shortest_paths('P00519', 'P08559_S232', weights='weight')]
+
+res = network_i.community_leading_eigenvector(weights='weight')

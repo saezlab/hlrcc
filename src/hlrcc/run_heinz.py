@@ -1,6 +1,7 @@
 import re
 import pydot
 import igraph
+import pickle
 import numpy as np
 import seaborn as sns
 import subprocess
@@ -17,28 +18,26 @@ sns.set_style('white')
 # ---- Import phospho FC
 phospho_fc = read_csv(wd + '/data/b1368p100_phospho_human_limma.tsv', sep='\t', index_col=0)['logFC']
 
+# ---- Import kinases targets
+with open('%s/files/kinases_targets.pickle' % wd, 'rb') as handle:
+    kinases_targets = pickle.load(handle)
+
+kinases_targets = {k: kinases_targets[k].intersection(phospho_fc.index) for k in kinases_targets if len(kinases_targets[k].intersection(phospho_fc.index)) > 2}
+
 # ---- Import kinase activity
 kinases_es = read_csv(wd + '/files/kinase_activity.tab', sep='\t', index_col=0, header=None, names=['activity'])['activity']
+kinases_es = kinases_es[kinases_targets]
 
 # ---- Import Kinase/Substrate network
-# c_info = ['KIN_ACC_ID', 'SUB_ACC_ID', 'SUB_MOD_RSD', 'KIN_ORGANISM', 'SUB_ORGANISM']
-#
-# network = read_csv(wd + '/files/kinase_substrate_phosphositeplus.txt', sep='\t')[c_info]
-# network['SITE'] = network['SUB_ACC_ID'] + '_' + network['SUB_MOD_RSD']
-# print '[INFO] Kinase/substrate network: ', len(network)
-#
-# network = network[np.bitwise_and(network['KIN_ORGANISM'] == 'human', network['SUB_ORGANISM'] == 'human')]
-# print '[INFO] Kinase/substrate network, human: ', len(network)
-#
-# network = network[network['KIN_ACC_ID'] != network['SUB_ACC_ID']]
-# print '[INFO] Kinase/substrate network, human, no self-phosphorylations: ', len(network)
-#
-# vertices = list(set(network['KIN_ACC_ID']).union(network['SUB_ACC_ID']).union(network['SITE']))
-
 network = read_csv('/Users/emanuel/Projects/resources/signalling_models/KS_network.tab', sep='\t', header=0, dtype=str).dropna()
+
 network = network[[not x.startswith('n') for x in network['SID']]]
+
 network = network[[s != k for s, k in network[['S.AC', 'K.AC']].values]]
+
 network['SITE'] = network['S.AC'] + '_' + network['res'] + network['pos']
+
+vertices = list(set(network['K.AC']).union(network['S.AC']).union(network['SITE']))
 print '[INFO] network: ', network.shape
 
 vertices = list(set(network['K.AC']).union(network['S.AC']).union(network['SITE']))
@@ -66,12 +65,11 @@ network_i = igraph.Graph(directed=False)
 # Add nodes
 network_i.add_vertices(vertices)
 network_i.vs['weight'] = [vertices_weights[v] if v in vertices_weights else -1.0 for v in vertices]
-print '[INFO] Kinase/Substrate network: ', network_i.summary()
+print '[INFO] Kinase/Substrate network: ', network_i.summary(), len(vertices_weights)
 
 # Add edges
 edges = []
 for i in network.index:
-    # source, site, substrate = network.ix[i, 'KIN_ACC_ID'], network.ix[i, 'SITE'], network.ix[i, 'SUB_ACC_ID']
     source, site, substrate = network.ix[i, 'K.AC'], network.ix[i, 'SITE'], network.ix[i, 'S.AC']
 
     edges.append((source, site))
@@ -84,9 +82,9 @@ print '[INFO] Kinase/Substrate network: ', network_i.summary()
 network_i = network_i.simplify(True, True, 'first')
 print '[INFO] Sub-network largest component simplified: ', network_i.summary()
 
-# # Get largest component
-# network_i = network_i.components().giant()
-# print '[INFO] Sub-network largest component: ', network_i.summary()
+# Get largest component
+network_i = network_i.components().giant()
+print '[INFO] Sub-network largest component: ', network_i.summary()
 
 # Export network to Heinz
 with open('%s/files/heinz_nodes.txt' % wd, 'w') as f:
@@ -119,6 +117,13 @@ for edge in heinz_network.es:
 
     source = pydot.Node(source_id, style='filled', shape='box', penwidth='0')
     target = pydot.Node(target_id, style='filled', shape='box', penwidth='0')
+
+    for node in [source, target]:
+        if node.get_name() in phospho_fc.index:
+            node.set_fillcolor('#3498db')
+
+        elif node.get_name() in kinases_es:
+            node.set_fillcolor('#BB3011')
 
     graph.add_node(source)
     graph.add_node(target)

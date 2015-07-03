@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 from hlrcc import wd
 from pymist.enrichment.gsea import gsea
@@ -23,7 +24,12 @@ print '[INFO] network, remove self phosphorylations: ', ks_network.shape
 
 # Calculate kinase target sites
 kinases = set(ks_network.loc[ks_network['K.AC'] != '', 'K.AC'])
-kinases_targets = {k: set(map('_'.join, ks_network.loc[ks_network['K.AC'] == k, ['S.AC', 'site']].values)).intersection(pp_fc.index) for k in kinases}
+kinases_targets = {k: set(map('_'.join, ks_network.loc[ks_network['K.AC'] == k, ['S.AC', 'site']].values)) for k in kinases}
+
+with open('%s/files/kinases_targets.pickle' % wd, 'wb') as handle:
+    pickle.dump(kinases_targets, handle)
+
+kinases_targets = {k: kinases_targets[k].intersection(pp_fc.index) for k in kinases_targets}
 kinases_targets = {k: v for k, v in kinases_targets.iteritems() if len(v) > 0}
 print '[INFO] Kinases targets: ', len(kinases_targets)
 

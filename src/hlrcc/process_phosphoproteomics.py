@@ -20,7 +20,7 @@ pp = pp_all[np.concatenate((info_columns, ss.index))].replace(0.0, np.NaN)
 print '[INFO] phospho: ', pp.shape
 
 # Remove peptides with 1 or less measurements per condition
-pp = pp[np.bitwise_and(pp[ss_ko].count(1) > 2, pp[ss_wt].count(1) > 2)]
+pp = pp[np.bitwise_and(pp[ss_ko].count(1) > 1, pp[ss_wt].count(1) > 1)]
 print '[INFO] Remove peptides with 1 or less measurements per condition: ', pp.shape
 
 # Log 2 transform
