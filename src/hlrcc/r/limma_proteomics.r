@@ -1,7 +1,9 @@
 library(limma)
 
-tp_file <- '/Users/emanuel/Projects/projects/hlrcc/data/b1368p100_protein_human_processed.tab'
-tp_file_res <- '/Users/emanuel/Projects/projects/hlrcc/data/b1368p100_protein_human_limma.tsv'
+wd <- '~/Projects/projects/hlrcc/'
+
+tp_file <- paste(wd, 'data/uok262_proteomics_processed.txt', sep='')
+tp_file_res <- paste(wd, 'data/uok262_proteomics_logfc.txt', sep='')
 
 # Import data-sets
 tp <- read.table(tp_file, sep='\t', header=T, stringsAsFactors=F, check.names=F, row.names=1)
@@ -22,3 +24,4 @@ tp_result$p.value.log10 <- -log10(tp_result$adj.P.Val)
 
 # Store reults
 write.table(tp_result, tp_file_res, sep='\t', quote=F)
+message('[INFO] Differential analysis done')

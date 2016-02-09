@@ -19,7 +19,7 @@ ss_wt = ss[ss['condition'] == 'fh_wt'].index
 # Import and process phospho
 info_columns = ['peptide', 'site', 'uniprot']
 
-pp_all = read_csv('%s/data/uok262_phosphoproteomics.tab' % wd, sep='\t').dropna(subset=info_columns)
+pp_all = read_csv('%s/data/uok262_phosphoproteomics.txt' % wd, sep='\t').dropna(subset=info_columns)
 pp = pp_all[np.concatenate((info_columns, ss.index))].replace(0.0, np.NaN)
 print '[INFO] phospho: ', pp.shape
 
@@ -48,7 +48,7 @@ pp[ss.index] = zscore(pp[ss.index])
 
 # Export p-site level phosphoproteomics
 pp.columns = [ss.ix[i, 'condition'] for i in pp.columns]
-pp.to_csv('%s/data/uok262_phosphoproteomics_processed.tsv' % wd, sep='\t')
+pp.to_csv('%s/data/uok262_phosphoproteomics_processed.txt' % wd, sep='\t')
 print '[INFO] Export p-site level phosphoproteomics'
 
 
