@@ -7,7 +7,7 @@ from pandas.stats.misc import zscore
 
 
 # -- Import samplesheet
-ss = read_csv('%s/data/fh_samplesheet.tab' % wd, sep='\t', index_col=0)
+ss = read_csv('%s/data/proteomics_samplesheet.txt' % wd, sep='\t', index_col=0)
 ss = ss.loc[np.bitwise_and(ss['organism'] == 'human', ss['type'] == 'tp')]
 
 ss_ko = ss[ss['condition'] == 'fh_ko'].index
