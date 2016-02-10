@@ -107,9 +107,10 @@ pathways_es = pathways_es[pathways_es['pvalue'] < 0.05]
 pathways_es['name'] = [' '.join(i.lower().split('_')[1:]) for i in pathways_es.index]
 print pathways_es
 
+# Plot
 sns.set(style='ticks')
 plot_df = pathways_es[pathways_es['pvalue'] < .05]
-colours, y_pos = sns.color_palette('Paired', 2), [x + 1.5 for x in range(len(plot_df['name']))]
+colours, y_pos = sns.light_palette('#34495e', 3)[1:], [x + 1.5 for x in range(len(plot_df['name']))]
 
 plt.barh(y_pos, -np.log10(plot_df['pvalue']), lw=0, align='center', height=.5, color=colours[0], label='p-value')
 plt.barh(y_pos, -np.log10(plot_df['fdr']), lw=0, align='center', height=.5, color=colours[1], label='FDR')
@@ -129,4 +130,3 @@ plt.gcf().set_size_inches(5., 8., forward=True)
 plt.savefig('%s/reports/k_activity_pathway_enrichment.pdf' % wd, bbox_inches='tight')
 plt.close()
 print '[INFO] Pathways enrichment plotted'
-
