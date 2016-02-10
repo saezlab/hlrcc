@@ -22,7 +22,7 @@ def volcano(f, d, x_label, y_label, adj_p_value_label, title='', to_highlight=No
     # Define pallete
     colour_pallete = sns.light_palette('#34495e', 4, reverse=True)[:-1]
     g = sns.lmplot(x=y_label, y=x_label, data=d, hue='signif', fit_reg=False, palette=colour_pallete, legend=False)
-    g.axes[0,0].set_xlim(0,)
+    g.axes[0, 0].set_xlim(0,)
 
     # Add FDR threshold lines
     plt.text(-np.log10(0.01) * 1.01, plt.ylim()[0]*.98, 'FDR 1%', ha='left', color=colour_pallete[0], alpha=0.65, fontsize=5)
@@ -54,7 +54,6 @@ def volcano(f, d, x_label, y_label, adj_p_value_label, title='', to_highlight=No
 
     # Save plot
     plt.gcf().set_size_inches(5., 3., forward=True)
-    # plt.xlim(0, plt.ylim()[1])
     plt.savefig(f, bbox_inches='tight')
 
     print '[INFO] Volcano generated: ' + f

@@ -4,6 +4,17 @@ import matplotlib.pyplot as plt
 from hlrcc import wd
 from pandas import read_csv
 from pandas.stats.misc import zscore
+from hlrcc.utils.volcano import volcano
+from pymist.utils.map_peptide_sequence import read_uniprot_genename
+from pymist.reader.sbml_reader import read_sbml_model
+
+
+# -- Uniprot names
+human_uniprot = read_uniprot_genename()
+print '[INFO] Uniprot human protein: ', len(human_uniprot)
+
+# -- Import metabolic model
+m_genes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml').get_genes()
 
 
 # -- Import samplesheet
@@ -47,10 +58,29 @@ tp.to_csv('%s/data/uok262_proteomics_processed.txt' % wd, sep='\t')
 print '[INFO] Export protein level proteomics'
 
 
-# -- Plot heatmap
+# -- Plot
+# Heatmap
 cmap = sns.light_palette((210, 90, 60), input='husl', as_cmap=True)
 
 sns.clustermap(tp.corr(method='pearson'), annot=True, cmap=cmap)
 plt.savefig('%s/reports/proteomics_replicates_clustermap.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Heatmap plotted!'
+
+# Volcano
+tp_fc = read_csv('%s/data/uok262_proteomics_logfc.txt' % wd, sep='\t')
+tp_fc['name'] = [human_uniprot[i.split('_')[0]][0] if i.split('_')[0] in human_uniprot else '' for i in tp_fc.index]
+
+genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH', 'ABL1', 'ABL2']
+
+volcano(
+    '%s/reports/proteomics_logfc_volcano.pdf' % wd,
+    tp_fc,
+    'logFC',
+    'p.value.log10',
+    'adj.P.Val',
+    'UOK262 phosphoproteomics (KO vs WT)',
+    genes_highlight,
+    'name'
+)
+plt.close('all')

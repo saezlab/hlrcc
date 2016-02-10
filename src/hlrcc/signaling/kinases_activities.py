@@ -6,6 +6,7 @@ from hlrcc import wd
 from pymist.enrichment.gsea import gsea
 from pandas import DataFrame, Series, read_csv
 from statsmodels.stats.multitest import multipletests
+from scipy.stats.distributions import hypergeom
 from pymist.utils.read_gmt import read_gmt
 from pymist.utils.omnipath_phospho import get_targets
 from pymist.utils.map_peptide_sequence import read_uniprot_genename
@@ -81,18 +82,32 @@ plt.close('all')
 print '[INFO] Corr plotted!'
 
 
-# -- GSEA in MSigDB
+# -- MSigDB pathway enrichment
 signatures = read_gmt('%s/files/c2.cp.kegg.v5.1.symbols.gmt' % wd)
+kinase_set = {human_uniprot[k][0] for k, v in k_activity_lm.to_dict().items() if k in human_uniprot}
+kinase_all = {human_uniprot[k][0] for k in k_targets if k in human_uniprot}
 
-kinase_set = {human_uniprot[k][0]: v for k, v in k_activity_lm.to_dict().items() if k in human_uniprot}
+# hypergeom.sf(x, M, n, N, loc=0)
+# M: total number of objects,
+# n: total number of type I objects
+# N: total number of type I objects drawn without replacement
+pathways_es = {sig: (hypergeom.sf(
+    len(kinase_set.intersection(signatures[sig])),
+    len(kinase_all),
+    len(kinase_all.intersection(signatures[sig])),
+    len(kinase_set)
+), len(kinase_set.intersection(signatures[sig]))) for sig in signatures if len(kinase_set.intersection(signatures[sig])) > 2}
+print '[INFO] GO terms enrichment done'
 
-pathways_es = {p: gsea(kinase_set, signatures[p], 10000) for p in signatures}
-pathways_es = DataFrame(pathways_es, index=['es', 'pvalue']).T.dropna()
+pathways_es = DataFrame(pathways_es, index=['pvalue', 'intersection']).T.dropna()
+pathways_es = pathways_es[pathways_es['pvalue'] != 0]
 pathways_es['fdr'] = multipletests(pathways_es['pvalue'], method='fdr_bh')[1]
-pathways_es['name'] = [' '.join(i.lower().split('_')[1:]) for i in pathways_es.index]
 pathways_es = pathways_es.sort('fdr', ascending=False)
-print pathways_es.tail(10).sort('fdr')
+pathways_es = pathways_es[pathways_es['pvalue'] < 0.05]
+pathways_es['name'] = [' '.join(i.lower().split('_')[1:]) for i in pathways_es.index]
+print pathways_es
 
+sns.set(style='ticks')
 plot_df = pathways_es[pathways_es['pvalue'] < .05]
 colours, y_pos = sns.color_palette('Paired', 2), [x + 1.5 for x in range(len(plot_df['name']))]
 
@@ -110,6 +125,7 @@ sns.despine()
 plt.xlabel('-log10')
 plt.title('KEGG pathways enrichment')
 plt.legend(loc=4)
+plt.gcf().set_size_inches(5., 8., forward=True)
 plt.savefig('%s/reports/k_activity_pathway_enrichment.pdf' % wd, bbox_inches='tight')
 plt.close()
 print '[INFO] Pathways enrichment plotted'
