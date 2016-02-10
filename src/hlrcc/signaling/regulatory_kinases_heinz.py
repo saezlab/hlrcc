@@ -12,15 +12,6 @@ from pymist.reader.sbml_reader import read_sbml_model
 from pymist.utils.omnipath_phospho import get_targets
 from statsmodels.distributions import ECDF
 from pandas import DataFrame, Series, read_csv
-from pymist.utils.map_peptide_sequence import read_uniprot_genename
-
-
-# -- Import Uniprot id mapping
-human_uniprot = read_uniprot_genename()
-print '[INFO] Uniprot human protein: ', len(human_uniprot)
-
-# -- Import metabolic model
-m_genes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml').get_genes()
 
 
 # -- Import data-sets
@@ -36,10 +27,6 @@ k_activity = read_csv('%s/data/uok262_kinases_activity_lm.txt' % wd, sep='\t', i
 sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM']
 k_targets = get_targets(sources, remove_self=False)
 print '[INFO] Kinases targets imported: ', k_targets.shape
-
-# Enzymes with regulatory p-sites
-phospho_fc_enzymes = phospho_fc.ix[[i for i in phospho_fc.index if i.split('_')[0] in human_uniprot and human_uniprot[i.split('_')[0]][0] in m_genes]]
-phospho_fc_enzymes = phospho_fc_enzymes.ix[[i for i in phospho_fc_enzymes.index if i in k_targets.index]].sort(inplace=False)
 
 
 # -- Build Kinase/Substrate network
@@ -68,7 +55,7 @@ vertices_weights.update(phospho_weights)
 
 
 # -- Create network
-network_i = igraph.Graph(directed=True)
+network_i = igraph.Graph(directed=False)
 
 # Add nodes
 network_i.add_vertices(vertices)
@@ -90,24 +77,41 @@ print '[INFO] Kinase/Substrate network: ', network_i.summary()
 network_i = network_i.simplify(True, True, 'first')
 print '[INFO] Sub-network largest component simplified: ', network_i.summary()
 
+# Get largest component
+network_i = network_i.components().giant()
+print '[INFO] Sub-network largest component: ', network_i.summary()
 
-# -- Analyse p-site up-stream signalling pathway
-psites = ['Q01581_S495']
+# Export network to Heinz
+with open('%s/files/heinz_nodes.txt' % wd, 'w') as f:
+    f.write('#node\tscore1\n')
+    f.write('\n'.join(['%s\t%.4f' % (v['name'], v['weight']) for v in network_i.vs]))
 
-sub_network = network_i.subgraph(network_i.neighborhood(vertices=psites, order=3, mode='IN')[0])
-print '[INFO] Subnetwork: ', sub_network.summary()
+with open('%s/files/heinz_edges.txt' % wd, 'w') as f:
+    f.write('#nodeA\tnodeB\tscore1\n')
+    f.write('\n'.join(['%s\t%s\t0.0' % tuple(network_i.vs[[e.source, e.target]]['name']) for e in network_i.es]))
+
+print '[INFO] Network exported to Heinz'
+
+# Run Heinz
+subprocess.call('heinz -e %s/files/heinz_edges.txt -n %s/files/heinz_nodes.txt -o %s/files/heinz_solution.txt -t 3000' % (wd, wd, wd), shell=True)
+print '[INFO] Heinz execution finished'
+
+# Read Heinz solution
+heinz_network = read_csv('%s/files/heinz_solution.txt' % wd, sep='\t')[:-1].dropna()
+heinz_network = network_i.subgraph(heinz_network['#label'])
+print '[INFO] Heinz active module: ', heinz_network.summary()
 
 # Draw network
-graph = pydot.Dot(graph_type='digraph', rankdir='LR')
+graph = pydot.Dot(graph_type='graph', rankdir='LR')
 
 graph.set_node_defaults(fontcolor='white', penwidth='3')
 graph.set_edge_defaults(color='gray', arrowhead='vee')
 
-for edge in sub_network.es:
-    source_id, target_id = sub_network.vs[[edge.source, edge.target]]['name']
+for edge in heinz_network.es:
+    source_id, target_id = heinz_network.vs[[edge.source, edge.target]]['name']
 
-    source = pydot.Node(source_id, style='filled', shape='ellipse', penwidth='0')
-    target = pydot.Node(target_id, style='filled', shape='ellipse', penwidth='0')
+    source = pydot.Node(source_id, style='filled', shape='box', penwidth='0')
+    target = pydot.Node(target_id, style='filled', shape='box', penwidth='0')
 
     for node in [source, target]:
         if node.get_name() in phospho_fc.index:
@@ -116,16 +120,25 @@ for edge in sub_network.es:
         elif node.get_name() in k_activity_abs.index:
             node.set_fillcolor('#BB3011')
 
-        n_name = node.get_name()
-        n_name = n_name.replace(n_name.split('_')[0], human_uniprot[n_name.split('_')[0]][0])
-
-        node.set_name(n_name)
-
     graph.add_node(source)
     graph.add_node(target)
 
     edge = pydot.Edge(source, target)
     graph.add_edge(edge)
 
-graph.write_pdf('%s/reports/psite_upstream_pathway_%s.pdf' % (wd, '_'.join(psites)))
+graph.write_pdf('%s/reports/heinz_solution.pdf' % wd)
 print '[INFO] Network PDF saved!\n'
+
+# Sub-network
+sub_network = network_i.subgraph(network_i.neighborhood(vertices=['P08559_S232'], order=3)[0])
+print '[INFO] Subnetwork: ', sub_network.summary()
+
+# [heinz_network.vs[x]['name'] for x in heinz_network.get_all_shortest_paths('P00519', 'P08559_S232')]
+# [network_i.vs[x]['name'] for x in network_i.get_all_shortest_paths('P00519', 'P08559_S232')]
+
+# ABL2: P42684, LASP1: Q14847
+# P00519, P42684_Y261
+# P00519, Q14847_Y171
+
+print heinz_network.get_eid('P00519', 'P42684_Y261')
+print heinz_network.get_eid('P00519', 'Q14847_Y171')
