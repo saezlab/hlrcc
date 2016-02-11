@@ -82,7 +82,7 @@ for condition in conditions:
             reduced_model.set_constraint(reaction, lower_bound=fitted_medium[reaction], upper_bound=fitted_medium[reaction])
 
     # -- Metabolic sampling
-    samples = sample(reduced_model, 2000, 500, verbose=1)
+    samples = sample(reduced_model, 2000, 350, verbose=1)
     samples = DataFrame(samples, columns=reduced_model.reactions.keys())
 
     # Store sampling

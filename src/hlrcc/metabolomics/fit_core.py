@@ -15,6 +15,8 @@ from pandas.stats.misc import zscore
 
 
 # -- Imports
+conditions = ['UOK262', 'UOK262pFH']
+
 # Metabolic model
 model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml')
 model.remove_b_metabolites()
@@ -36,14 +38,12 @@ core_o2 = read_csv('%s/data/uok262_metabolomics_core_o2_processed.txt' % wd, sep
 
 # -- Estimate exchange reactions
 # Set condition
-conditions = ['UOK262', 'UOK262pFH']
-
 predictions = {}
 for condition in conditions:
     # condition = conditions[0]
     print '[INFO] Condition: ', condition
 
-    #
+    # Get condition exchange rates
     exchange_rates = core[condition].dropna()
 
     # -- Fit medium
@@ -102,13 +102,86 @@ predictions['Measured'] = [core.ix[i.split(' ')[1], i.split(' ')[0]] for i in pr
 sns.set(style='ticks')
 g = sns.jointplot(
     'Measured', 'Predicted', predictions, 'reg', color='#34495e', joint_kws={'ci': None, 'scatter_kws': {'s': 40, 'edgecolor': 'w', 'linewidth': .5}},
-    marginal_kws={'hist': False, 'rug': True}, annot_kws={'template': 'Pearson: {val:.2g}, p-value: {p:.1e}'}, ylim=[-5, 5], space=0,
+    marginal_kws={'hist': False, 'rug': True}, annot_kws={'template': 'Spearman: {val:.2g}, p-value: {p:.1e}'}, space=0,
     stat_func=spearmanr
 )
 plt.axhline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
 plt.axvline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
 g.plot_marginals(sns.kdeplot, shade=True, color='#34495e')
 g.set_axis_labels('Measured (mmol/gDW/h)', 'Predicted (mmol/gDW/h)')
-plt.savefig('%s/reports/fitted_medium_cor.pdf' % wd, bbox_inches='tight')
+plt.savefig('%s/reports/fitted_medium_loo_cor.pdf' % wd, bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
+
+
+# -- Fit metabolic model with all CORE rates
+mediums = {}
+for condition in conditions:
+    # condition = conditions[0]
+    print '[INFO] Condition: ', condition
+
+    # Get condition exchange rates
+    exchange_rates = core[condition].dropna()
+
+    # -- Fit medium
+    # Reactions not used
+    for reaction in ['R_EX_retpalm', 'R_EX_retpalm_e_']:
+        model.set_constraint(reaction, 0)
+
+    # Deepcopy metabolic model
+    reduced_model = model.deepcopy()
+
+    # Add FH KO to tumour cell lines
+    if condition == 'UOK262':
+        reduced_model.set_constraint('R_FUM', 0, 0)
+        reduced_model.set_constraint('R_FUMm', 0, 0)
+        print '[INFO] R_FUM blocked'
+
+    # Block exhange fluxes not present in the medium or CORE experiment
+    for reaction in reduced_model.get_exchanges(check_matrix=True):
+        if (reaction not in exchange_rates.index) and (reaction != o2_exch) and (reaction not in medium['exchange'].values):
+            reduced_model.set_constraint(reaction, lower_bound=0)
+    print '[INFO] Exchange reactions constrained'
+
+    # Minimise differences between simulations and measurements
+    constrains = {}
+    for r in reduced_model.get_exchanges(check_matrix=True):
+        if r in exchange_rates.index:
+            constrains[r] = exchange_rates.ix[r, condition]
+        elif r == 'R_EX_o2_e_':
+            constrains['R_EX_o2_e_'] = core_o2[condition]
+
+    fitted_medium = min_differences(reduced_model, constrains).get_net_conversions(reduced_model, check_matrix=True)
+
+    # Constraint metabolic model lower bound
+    for reaction in fitted_medium:
+        if reaction in exchange_rates.index:
+            reduced_model.set_constraint(reaction, lower_bound=fitted_medium[reaction], upper_bound=fitted_medium[reaction])
+
+    # Run pFBA
+    internal_reactions = set(reduced_model.reactions) - set(reduced_model.get_exchanges(check_matrix=True))
+    constrains = {r: 0 for r in internal_reactions}
+    fitted_medium = min_differences(reduced_model, constrains).get_net_conversions(reduced_model)
+    
+    # Save fitted medium measurements
+    mediums[condition] = fitted_medium
+
+mediums = DataFrame(mediums)
+print mediums
+
+# Plot
+plot_df = mediums.ix[mediums.eval('-'.join(conditions)).abs().sort(inplace=False, ascending=False).index].unstack().reset_index().dropna()
+plot_df.columns = ['condition', 'exchange', 'rate']
+plot_df['metabolite'] = [model.metabolites[model.get_reactants(e)[0]] for e in plot_df['exchange']]
+
+pallete = sns.light_palette('#34495e', 3)[1:]
+
+sns.set(style='ticks', context='paper')
+g = sns.factorplot('rate', 'metabolite', data=plot_df, hue='condition', palette=pallete, legend=True, legend_out=True)
+plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='--')
+plt.xlabel('mol / gDW / h')
+plt.ylabel('')
+plt.gcf().set_size_inches(5., 6., forward=True)
+plt.savefig('%s/reports/fitted_medium.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
