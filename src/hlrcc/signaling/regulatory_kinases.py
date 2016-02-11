@@ -92,7 +92,7 @@ print '[INFO] Sub-network largest component simplified: ', network_i.summary()
 
 
 # -- Analyse p-site up-stream signalling pathway
-psites = ['Q01581_S495']
+psites = ['P08559_S232']  # Q01581_S495
 
 sub_network = network_i.subgraph(network_i.neighborhood(vertices=psites, order=3, mode='IN')[0])
 print '[INFO] Subnetwork: ', sub_network.summary()
