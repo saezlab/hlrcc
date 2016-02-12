@@ -4,13 +4,9 @@ import matplotlib.pylab as plt
 import numpy as np
 from hlrcc import wd
 from pymist.reader.sbml_reader import read_sbml_model
-from pymist.sampler import sample, fix_futile_cycles
-from pymist.reduce import reduce_model
-from pandas import read_csv, DataFrame, Series, melt
-from pymist.simulation import min_differences, pFBA, FVA
-from pymist.balance import elements_atoms
-from pymist.utils.plot_utils import save_plot
-from pandas.stats.misc import zscore
+from pymist.sampler import sample
+from pandas import read_csv, DataFrame
+from pymist.simulation import min_differences
 
 
 # -- Imports
@@ -82,7 +78,7 @@ for condition in conditions:
             reduced_model.set_constraint(reaction, lower_bound=fitted_medium[reaction], upper_bound=fitted_medium[reaction])
 
     # -- Metabolic sampling
-    samples = sample(reduced_model, 2000, 350, verbose=1)
+    samples = sample(reduced_model, 10000, 2500, verbose=1)
     samples = DataFrame(samples, columns=reduced_model.reactions.keys())
 
     # Store sampling
@@ -91,20 +87,23 @@ for condition in conditions:
 
 print '[INFO] Sampling DONE!'
 
+# -- Export sampling
+[sampling_results[c].to_csv('%s/data/%s_sampling.txt' % (wd, c), sep='\t') for c in conditions]
+print '[INFO] Sampling matrices exported'
 
-# -- Plot
-reactions = ['R_PDHm', 'R_ACONT', 'R_SUCD1m', 'R_ICDHy', 'R_GLNS', 'R_GND']
-
-ko_samples = sampling_results['UOK262'][reactions]
-ko_samples['condition'] = 'UOK262'
-
-wt_samples = sampling_results['UOK262pFH'][reactions]
-wt_samples['condition'] = 'UOK262pFH'
-
-df = ko_samples.append(wt_samples)
-
-sns.set(style='ticks')
-sns.pairplot(df, hue='condition', palette=sns.color_palette('Paired'), diag_kind='kde')
-plt.savefig('%s/reports/sampling_pairplot.pdf' % wd, bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
+# # -- Plot
+# reactions = ['R_PDHm', 'R_ACONT', 'R_SUCD1m', 'R_ICDHy', 'R_GLNS', 'R_GND']
+#
+# ko_samples = sampling_results['UOK262'][reactions]
+# ko_samples['condition'] = 'UOK262'
+#
+# wt_samples = sampling_results['UOK262pFH'][reactions]
+# wt_samples['condition'] = 'UOK262pFH'
+#
+# plot_df = ko_samples.append(wt_samples)
+#
+# sns.set(style='ticks')
+# sns.pairplot(plot_df, hue='condition', palette=sns.light_palette('#34495e', 3)[1:], diag_kind='kde')
+# plt.savefig('%s/reports/sampling_pairplot.pdf' % wd, bbox_inches='tight')
+# plt.close('all')
+# print '[INFO] Plot done'

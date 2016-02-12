@@ -27,9 +27,6 @@ print '[INFO] Metabolites measured: ', len(metabolites)
 # Merge two data-sets
 core = core_1.join(core_2) * 1000
 
-# # Filter by variation
-# core = core[core.std(1) > .1]
-
 # Map metabolite to exchange reaction
 core.index = [m_map[i] for i in core.index]
 
@@ -37,27 +34,14 @@ core.index = [m_map[i] for i in core.index]
 core.to_csv('%s/data/uok262_metabolomics_core_processed.txt' % wd, sep='\t')
 print '[INFO] Export metabolomics'
 
-# Remove batch experiment effect
-design = DataFrame({'replicate%d' % i: {c: int(c.endswith('_rep%d' % i)) for c in core} for i in range(1, 3)}).ix[core.columns]
-
-
-def rm_batch(x, y):
-    ys = y.dropna()
-    xs = x.ix[ys.index]
-
-    lm = LinearRegression().fit(xs, ys)
-
-    return ys - xs.dot(lm.coef_) - lm.intercept_
-
-core = DataFrame({metabolite: rm_batch(design, core.ix[metabolite, core.columns]) for metabolite in core.index}).T
-print '[INFO] Replicate effect removed: ', core.shape
 
 # -- Plot
 # Heatmap
 rep_cmap = dict(zip(*(['rep1', 'rep2'], sns.light_palette('#e74c3c', 3)[1:])))
 cod_cmap = dict(zip(*(['UOK262', 'UOK262pFH'], sns.light_palette('#3498db', 3)[1:])))
 
-plot_df = core.corr(method='spearman')
+plot_df = core[core.std(1) > .1]
+plot_df = plot_df.corr(method='spearman')
 
 row_color = [[rep_cmap[i.split('_')[2]] for i in plot_df.index], [cod_cmap[i.split('_')[0]] for i in plot_df.index]]
 col_color = [[rep_cmap[i.split('_')[2]] for i in plot_df], [cod_cmap[i.split('_')[0]] for i in plot_df]]
