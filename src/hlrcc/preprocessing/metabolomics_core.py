@@ -27,6 +27,16 @@ print '[INFO] Metabolites measured: ', len(metabolites)
 # Merge two data-sets
 core = core_1.join(core_2) * 1000
 
+<<<<<<< HEAD
+=======
+# Map metabolite to exchange reaction
+core.index = [m_map[i] for i in core.index]
+
+# Export data-set
+core.to_csv('%s/data/uok262_metabolomics_core_processed.txt' % wd, sep='\t')
+print '[INFO] Export metabolomics'
+
+>>>>>>> ec222437a72c155a7c909e47f04a42389ec57662
 
 # -- Plot
 # Heatmap

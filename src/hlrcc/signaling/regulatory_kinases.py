@@ -139,6 +139,7 @@ k_level2 = {k for k in k_level2 if len(k.split('_')) == 1}
 plot_df = [(k, 'level 1' if k in k_level1 else 'level 2', human_uniprot[k][0], k_activity.ix[k].values[0]) for k in sub_network.vs['name'] if len(k.split('_')) == 1 and k in k_activity.index]
 plot_df = DataFrame(plot_df, columns=['uniprot', 'level', 'name', 'activity'])
 plot_df = plot_df.sort('activity', ascending=False)
+<<<<<<< HEAD
 plot_df['name'] = ['PDK' if i.startswith('PDK') else i for i in plot_df['name']]
 
 sns.set(style='ticks')
@@ -146,6 +147,12 @@ g = sns.FacetGrid(plot_df, col='level', sharey=False, sharex=False, aspect=0.75)
 g.map(sns.barplot, 'name', 'activity', color='#34495e', lw=0, ci=None)
 g.map(plt.axhline, y=0, lw=.3, ls='-', alpha=0.7, color='gray')
 g.set_titles('Kinase {col_name}')
+=======
+
+sns.set(style='ticks')
+sns.barplot('name', 'activity', 'level', plot_df, palette=sns.light_palette('#34495e', 3)[1:], lw=0)
+plt.axhline(0, lw=.3, ls='-', alpha=0.7, color='gray')
+>>>>>>> ec222437a72c155a7c909e47f04a42389ec57662
 sns.despine()
 plt.savefig('%s/reports/psite_upstream_pathway_%s_k_activity.pdf' % (wd, '_'.join(psites)), bbox_inches='tight')
 plt.close('all')
