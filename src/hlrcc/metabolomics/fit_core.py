@@ -1,21 +1,19 @@
-import time
-import seaborn as sns
-import matplotlib.pylab as plt
 import numpy as np
 from hlrcc import wd
+import seaborn as sns
+import matplotlib.pylab as plt
 from scipy.stats import spearmanr, pearsonr
 from pymist.reader.sbml_reader import read_sbml_model
-from pymist.sampler import sample, fix_futile_cycles
-from pymist.reduce import reduce_model
-from pandas import read_csv, DataFrame, Series, melt
-from pymist.simulation import min_differences, pFBA, FVA
-from pymist.balance import elements_atoms
-from pymist.utils.plot_utils import save_plot
-from pandas.stats.misc import zscore
+from pandas import read_csv, DataFrame, Series
+from pymist.simulation import min_differences
 
 
 # -- Imports
 conditions = ['UOK262', 'UOK262pFH']
+
+# Import metabolite map
+m_map = read_csv('%s/files/metabolites_map.txt' % wd, sep='\t', index_col=0)
+m_map = m_map.to_dict()['metabolite']
 
 # Metabolic model
 model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml')
@@ -93,12 +91,12 @@ for condition in conditions:
         print metabolite, predictions['%s %s' % (condition, metabolite)]
 
 predictions = DataFrame(Series(predictions), columns=['Predicted'])
+
+predictions['Measured'] = [core.ix[i.split(' ')[1], i.split(' ')[0]] for i in predictions.index]
 print predictions
 
 
 # -- Evaluate predictions
-predictions['Measured'] = [core.ix[i.split(' ')[1], i.split(' ')[0]] for i in predictions.index]
-
 sns.set(style='ticks')
 g = sns.jointplot(
     'Measured', 'Predicted', predictions, 'reg', color='#34495e', joint_kws={'ci': None, 'scatter_kws': {'s': 40, 'edgecolor': 'w', 'linewidth': .5}},

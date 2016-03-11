@@ -13,6 +13,7 @@ from pymist.reader.sbml_reader import read_sbml_model
 human_uniprot = read_uniprot_genename()
 print '[INFO] Uniprot human protein: ', len(human_uniprot)
 
+
 # -- Import metabolic model
 m_genes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml').get_genes()
 
@@ -42,9 +43,8 @@ tp = tp[[(len(i.split('; ')) == 2) and i.split('; ')[0] != '' for i in tp['unipr
 print '[INFO] Considering proteotypic peptides: ', tp.shape
 
 # Create protein IDs
-tp['index'] = tp.index
-tp['protein'] = ['%s_%s_%d' % (uniprot.split(';')[0], pep, index) for pep, uniprot, index in tp[['peptide', 'uniprot', 'index']].values]
-tp = tp.drop(info_columns + ['index'], axis=1).set_index('protein')
+tp['uniprot'] = [i.split(';')[0] for i in tp['uniprot']]
+tp = tp.groupby('uniprot', sort=False).median()
 
 # Log 2 transform
 tp[ss.index] = np.log2(tp[ss.index])
@@ -79,7 +79,7 @@ volcano(
     'logFC',
     'p.value.log10',
     'adj.P.Val',
-    'UOK262 phosphoproteomics (KO vs WT)',
+    'UOK262 proteomics (KO vs WT)',
     genes_highlight,
     'name'
 )

@@ -43,7 +43,7 @@ print '[INFO] Uniprot human protein: ', len(human_uniprot)
 
 
 # -- Import kinases targets
-sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM']
+sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM', 'DEPOD']
 k_targets = get_targets(sources, remove_self=False)
 print '[INFO] Kinases targets imported: ', k_targets.shape
 
@@ -62,11 +62,14 @@ k_activity_lm.to_csv('%s/data/uok262_kinases_activity_lm.txt' % wd, sep='\t')
 k_activity_gsea.to_csv('%s/data/uok262_kinases_activity_gsea.txt' % wd, sep='\t')
 print '[INFO] Kinases activities estimated'
 
+# k_activity_lm = read_csv('%s/data/uok262_kinases_activity_lm.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
+# k_activity_gsea = read_csv('%s/data/uok262_kinases_activity_gsea.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
 
 # -- Plot kinases activities
+# Corrplot
 kinases_ov = list(set(k_activity_lm.index).intersection(k_activity_gsea.index))
 
-plot_df = DataFrame({'lm': k_activity_lm.ix[kinases_ov], 'gsea': k_activity_gsea.ix[kinases_ov]})
+plot_df = DataFrame({'lm': k_activity_lm.ix[kinases_ov].to_dict()['activity'], 'gsea': k_activity_gsea.ix[kinases_ov].to_dict()['activity']})
 
 sns.set(style='ticks')
 g = sns.jointplot(
@@ -81,10 +84,27 @@ plt.savefig('%s/reports/kinases_activites_jointplot.pdf' % wd, bbox_inches='tigh
 plt.close('all')
 print '[INFO] Corr plotted!'
 
+# Barplot
+plot_df = k_activity_lm.reset_index()
+plot_df = plot_df[plot_df['activity'].abs() > .25]
+plot_df = plot_df[[i in human_uniprot for i in plot_df['kinase']]]
+plot_df['name'] = [human_uniprot[i][0] for i in plot_df['kinase']]
+
+sns.set(style='ticks', font_scale=.6)
+sns.barplot('activity', 'name', data=plot_df, color='#34495e', lw=0)
+plt.axvline(0, ls='--', lw=.3, alpha=.7, c='gray')
+sns.despine()
+plt.xlabel('Kinase activities (Ridge)')
+plt.ylabel('')
+plt.title('Top kinases/phosphatases activities')
+plt.gcf().set_size_inches(3., 5., forward=True)
+plt.savefig('%s/reports/kinases_activites_barplot.pdf' % wd, bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
 
 # -- MSigDB pathway enrichment
-signatures = read_gmt('%s/files/c2.cp.kegg.v5.1.symbols.gmt' % wd)
-kinase_set = {human_uniprot[k][0] for k, v in k_activity_lm.to_dict().items() if k in human_uniprot}
+signatures = read_gmt('%s/files/c2.all.v5.1.symbols.gmt' % wd)
+kinase_set = {human_uniprot[k][0] for k, v in k_activity_lm.to_dict()['activity'].items() if k in human_uniprot and abs(v) > .1}
 kinase_all = {human_uniprot[k][0] for k in k_targets if k in human_uniprot}
 
 # hypergeom.sf(x, M, n, N, loc=0)
@@ -109,7 +129,7 @@ print pathways_es
 
 # Plot
 sns.set(style='ticks')
-plot_df = pathways_es[pathways_es['pvalue'] < .05]
+plot_df = pathways_es[pathways_es['fdr'] < .01]
 colours, y_pos = sns.light_palette('#34495e', 3)[1:], [x + 1.5 for x in range(len(plot_df['name']))]
 
 plt.barh(y_pos, -np.log10(plot_df['pvalue']), lw=0, align='center', height=.5, color=colours[0], label='p-value')

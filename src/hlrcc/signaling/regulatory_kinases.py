@@ -30,10 +30,10 @@ phospho_fc['psite'] = ['_'.join(i.split('_')[:2]) for i in phospho_fc.index]
 phospho_fc = phospho_fc.groupby('psite')['logFC'].median()
 
 # Import kinase activity
-k_activity = read_csv('%s/data/uok262_kinases_activity_lm.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
+k_activity = read_csv('%s/data/uok262_kinases_activity_gsea.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
 
 # Kinases targets
-sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM']
+sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM', 'DEPOD']
 k_targets = get_targets(sources, remove_self=False)
 print '[INFO] Kinases targets imported: ', k_targets.shape
 
@@ -129,3 +129,24 @@ for edge in sub_network.es:
 
 graph.write_pdf('%s/reports/psite_upstream_pathway_%s.pdf' % (wd, '_'.join(psites)))
 print '[INFO] Network PDF saved!\n'
+
+# Plot kinases activities
+k_level1 = set(sub_network.subgraph(sub_network.neighborhood(vertices=psites, order=1, mode='IN')[0]).vs['name'])
+
+k_level2 = set(sub_network.subgraph(sub_network.neighborhood(vertices=psites, order=3, mode='IN')[0]).vs['name']) - k_level1
+k_level2 = {k for k in k_level2 if len(k.split('_')) == 1}
+
+plot_df = [(k, 'level 1' if k in k_level1 else 'level 2', human_uniprot[k][0], k_activity.ix[k].values[0]) for k in sub_network.vs['name'] if len(k.split('_')) == 1 and k in k_activity.index]
+plot_df = DataFrame(plot_df, columns=['uniprot', 'level', 'name', 'activity'])
+plot_df = plot_df.sort('activity', ascending=False)
+plot_df['name'] = ['PDK' if i.startswith('PDK') else i for i in plot_df['name']]
+
+sns.set(style='ticks')
+g = sns.FacetGrid(plot_df, col='level', sharey=False, sharex=False, aspect=0.75)
+g.map(sns.barplot, 'name', 'activity', color='#34495e', lw=0, ci=None)
+g.map(plt.axhline, y=0, lw=.3, ls='-', alpha=0.7, color='gray')
+g.set_titles('Kinase {col_name}')
+sns.despine()
+plt.savefig('%s/reports/psite_upstream_pathway_%s_k_activity.pdf' % (wd, '_'.join(psites)), bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'

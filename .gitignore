@@ -4,3 +4,4 @@ files/*
 .idea
 gurobi.log
 *.sqlite
+*_sampling.txt
