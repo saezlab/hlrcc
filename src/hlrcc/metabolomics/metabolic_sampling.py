@@ -82,29 +82,3 @@ for condition in conditions:
     # -- Export sampling
     samples.to_csv('%s/data/%s_sampling.txt' % (wd, condition), sep='\t', index=False)
     print '[INFO] Sampling finished: ', condition
-<<<<<<< HEAD
-=======
-
-print '[INFO] Sampling DONE!'
-
-# -- Export sampling
-[sampling_results[c].to_csv('%s/data/%s_sampling.txt' % (wd, c), sep='\t') for c in conditions]
-print '[INFO] Sampling matrices exported'
-
-# # -- Plot
-# reactions = ['R_PDHm', 'R_ACONT', 'R_SUCD1m', 'R_ICDHy', 'R_GLNS', 'R_GND']
-#
-# ko_samples = sampling_results['UOK262'][reactions]
-# ko_samples['condition'] = 'UOK262'
-#
-# wt_samples = sampling_results['UOK262pFH'][reactions]
-# wt_samples['condition'] = 'UOK262pFH'
-#
-# plot_df = ko_samples.append(wt_samples)
-#
-# sns.set(style='ticks')
-# sns.pairplot(plot_df, hue='condition', palette=sns.light_palette('#34495e', 3)[1:], diag_kind='kde')
-# plt.savefig('%s/reports/sampling_pairplot.pdf' % wd, bbox_inches='tight')
-# plt.close('all')
-# print '[INFO] Plot done'
->>>>>>> ec222437a72c155a7c909e47f04a42389ec57662

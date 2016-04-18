@@ -35,11 +35,7 @@ plot_df = DataFrame({'rnaseq': rnaseq.ix[ov_meas, 'logFC'], 'proteomics': proteo
 sns.set(style='ticks')
 g = sns.jointplot(
     'rnaseq', 'proteomics', plot_df, 'reg', color='#34495e', joint_kws={'scatter_kws': {'s': 40, 'edgecolor': 'w', 'linewidth': .5, 'alpha': .5}},
-<<<<<<< HEAD
     marginal_kws={'hist': False, 'rug': True}, annot_kws={'template': 'Spearman: {val:.2g}, p-value: {p:.1e}'}, ylim=[-5, 5], space=0
-=======
-    marginal_kws={'hist': False, 'rug': True}, annot_kws={'template': 'Pearson: {val:.2g}, p-value: {p:.1e}'}, ylim=[-5, 5], space=0
->>>>>>> ec222437a72c155a7c909e47f04a42389ec57662
 )
 plt.axhline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
 plt.axvline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
