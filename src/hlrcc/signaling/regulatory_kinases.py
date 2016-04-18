@@ -100,8 +100,8 @@ print '[INFO] Subnetwork: ', sub_network.summary()
 # Draw network
 graph = pydot.Dot(graph_type='digraph', rankdir='LR')
 
-graph.set_node_defaults(fontcolor='white', penwidth='3')
-graph.set_edge_defaults(color='gray', arrowhead='vee')
+graph.set_node_defaults(fontcolor='white', penwidth='3', fillcolor='#CCCCCC')
+graph.set_edge_defaults(color='#CCCCCC', arrowhead='vee')
 
 for edge in sub_network.es:
     source_id, target_id = sub_network.vs[[edge.source, edge.target]]['name']
@@ -114,7 +114,7 @@ for edge in sub_network.es:
             node.set_fillcolor('#3498db')
 
         elif node.get_name() in k_activity_abs.index:
-            node.set_fillcolor('#BB3011')
+            node.set_fillcolor('#34495e')
 
         n_name = node.get_name()
         n_name = n_name.replace(n_name.split('_')[0], human_uniprot[n_name.split('_')[0]][0])
@@ -141,7 +141,7 @@ plot_df = DataFrame(plot_df, columns=['uniprot', 'level', 'name', 'activity'])
 plot_df = plot_df.sort('activity', ascending=False)
 plot_df['name'] = ['PDK' if i.startswith('PDK') else i for i in plot_df['name']]
 
-sns.set(style='ticks')
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.FacetGrid(plot_df, col='level', sharey=False, sharex=False, aspect=0.75)
 g.map(sns.barplot, 'name', 'activity', color='#34495e', lw=0, ci=None)
 g.map(plt.axhline, y=0, lw=.3, ls='-', alpha=0.7, color='gray')

@@ -5,3 +5,4 @@ files/*
 gurobi.log
 *.sqlite
 *_sampling.txt
+figures/*

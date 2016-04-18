@@ -14,7 +14,7 @@ def signif(value):
 
 def volcano(f, d, x_label, y_label, adj_p_value_label, title='', to_highlight=None, ids=None):
     # Define params
-    sns.set(style='ticks', context='paper')
+    sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 
     # Descritise significance
     d['signif'] = [signif(v) for v in d[adj_p_value_label]]
@@ -37,7 +37,7 @@ def volcano(f, d, x_label, y_label, adj_p_value_label, title='', to_highlight=No
     # Add axis labels and title
     plt.title(title, fontsize=10, fontname='Arial')
     plt.ylabel('Fold-change (log2)', fontsize=8, fontname='Arial')
-    plt.xlabel('-log10 FDR ', fontsize=8, fontname='Arial')
+    plt.xlabel('FDR (-log10)', fontsize=8, fontname='Arial')
 
     # Add text to highlighted genes
     if to_highlight is not None:

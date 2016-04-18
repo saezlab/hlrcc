@@ -32,13 +32,13 @@ ov_meas = set(rnaseq.index).intersection(proteomics.index)
 
 plot_df = DataFrame({'rnaseq': rnaseq.ix[ov_meas, 'logFC'], 'proteomics': proteomics.ix[ov_meas, 'logFC']})
 
-sns.set(style='ticks')
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.jointplot(
     'rnaseq', 'proteomics', plot_df, 'reg', color='#34495e', joint_kws={'scatter_kws': {'s': 40, 'edgecolor': 'w', 'linewidth': .5, 'alpha': .5}},
-    marginal_kws={'hist': False, 'rug': True}, annot_kws={'template': 'Spearman: {val:.2g}, p-value: {p:.1e}'}, ylim=[-5, 5], space=0
+    marginal_kws={'hist': False, 'rug': False}, annot_kws={'template': 'Spearman: {val:.2g}, p-value: {p:.1e}', 'loc': 4}, ylim=[-5, 5], space=0
 )
-plt.axhline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
-plt.axvline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
+plt.axhline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
+plt.axvline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 g.plot_marginals(sns.kdeplot, shade=True, color='#34495e')
 g.set_axis_labels('Transcriptomics (log2 FC)', 'Proteomics (log2 FC)')
 plt.savefig('%s/reports/rnaseq_proteomics_jointplot.pdf' % wd, bbox_inches='tight')

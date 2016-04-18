@@ -55,13 +55,14 @@ print enzymes_metabol
 # Metabolic enzymes phosphorylation
 pal = sns.light_palette('#34495e', len(enzymes_metabol) + 1, reverse=True)[:-1]
 
-sns.set(style='ticks')
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 sns.lmplot('psite_logfc', 'reaction_cohensd', enzymes_metabol, 'psite', fit_reg=False, palette=pal, scatter_kws={'s': 50, 'edgecolor': 'w', 'linewidth': .5})
-plt.axhline(0, ls='--', lw=.3, c='gray')
-plt.axvline(0, ls='--', lw=.3, c='gray')
+plt.axhline(0, ls='-', lw=.3, c='gray')
+plt.axvline(0, ls='-', lw=.3, c='gray')
 plt.xlabel('p-site (log2 FC)')
 plt.ylabel('Flux rate (mean difference)')
-plt.title('KO vs WT')
+plt.title('UOK262 (KO vs WT)')
+plt.gcf().set_size_inches(5, 4)
 plt.savefig('%s/reports/psites_reactions_jointplot.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Corr plotted!'
@@ -82,12 +83,13 @@ plot_df.columns = ['reaction', 'sample', 'value', 'condition']
 plot_df['enzyme'] = [r_enz[i] for i in plot_df['reaction']]
 plot_df['reaction'] = [i[2:] for i in plot_df['reaction']]
 
-sns.set(style='ticks')
-g = sns.FacetGrid(plot_df, col='enzyme', col_wrap=7, sharey=False, sharex=False, aspect=.6)
-g.map(sns.violinplot, 'reaction', 'value', 'condition', palette=sns.light_palette('#34495e', 3)[1:], split=True, inner='quart')
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+g = sns.FacetGrid(plot_df, col='enzyme', col_wrap=4, sharey=False, sharex=False, aspect=1.7, size=1.3)
+g.map(sns.violinplot, 'value', 'reaction', 'condition', orient='h', palette=sns.light_palette('#34495e', 3)[1:], split=True, inner='quart')
+sns.despine(trim=True)
 g.set_titles('{col_name}')
-g.set_xlabels('')
-g.set_ylabels('Flux rate (mmol/gDW/h)')
+g.set_ylabels('')
+g.set_xlabels('Flux rate (mmol/gDW/h)')
 plt.savefig('%s/reports/sampling_boxplot.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

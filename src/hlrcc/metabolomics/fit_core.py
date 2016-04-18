@@ -97,14 +97,14 @@ print predictions
 
 
 # -- Evaluate predictions
-sns.set(style='ticks')
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.jointplot(
     'Measured', 'Predicted', predictions, 'reg', color='#34495e', joint_kws={'ci': None, 'scatter_kws': {'s': 40, 'edgecolor': 'w', 'linewidth': .5}},
     marginal_kws={'hist': False, 'rug': True}, annot_kws={'template': 'Spearman: {val:.2g}, p-value: {p:.1e}'}, space=0,
     stat_func=spearmanr
 )
-plt.axhline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
-plt.axvline(0, ls='--', lw=0.3, c='#95a5a6', alpha=.5)
+plt.axhline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
+plt.axvline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 g.plot_marginals(sns.kdeplot, shade=True, color='#34495e')
 g.set_axis_labels('Measured (mmol/gDW/h)', 'Predicted (mmol/gDW/h)')
 plt.savefig('%s/reports/fitted_medium_loo_cor.pdf' % wd, bbox_inches='tight')
@@ -174,12 +174,12 @@ plot_df['metabolite'] = [model.metabolites[model.get_reactants(e)[0]] for e in p
 
 pallete = sns.light_palette('#34495e', 3)[1:]
 
-sns.set(style='ticks', context='paper')
-g = sns.factorplot('rate', 'metabolite', data=plot_df, hue='condition', palette=pallete, legend=True, legend_out=True)
-plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='--')
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+g = sns.factorplot('rate', 'metabolite', data=plot_df, hue='condition', palette=pallete, legend=True, legend_out=True, aspect=.5, size=3, scale=.5)
+plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='-')
 plt.xlabel('mol / gDW / h')
 plt.ylabel('')
-plt.gcf().set_size_inches(5., 6., forward=True)
+sns.despine(trim=True)
 plt.savefig('%s/reports/fitted_medium.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

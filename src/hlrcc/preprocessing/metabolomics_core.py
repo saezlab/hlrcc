@@ -40,7 +40,7 @@ row_color = [[rep_cmap[i.split('_')[2]] for i in plot_df.index], [cod_cmap[i.spl
 col_color = [[rep_cmap[i.split('_')[2]] for i in plot_df], [cod_cmap[i.split('_')[0]] for i in plot_df]]
 
 cmap = sns.light_palette('#34495e', 10, as_cmap=True)
-sns.set(style='white', context='paper', font_scale=0.75)
+sns.set(style='white', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 sns.clustermap(plot_df, annot=True, cmap=cmap, lw=.3, row_colors=row_color, col_colors=col_color)
 plt.savefig('%s/reports/metabolomics_core_clutermap.pdf' % wd, bbox_inches='tight')
 plt.close('all')
@@ -54,10 +54,11 @@ plot_df['replicate'] = ['Replicate %s' % i.split('_')[2][-1:] for i in plot_df['
 
 order = list(core.std(1).sort(inplace=False, ascending=False).index)
 
-sns.set(style='ticks')
-g = sns.FacetGrid(plot_df, col='replicate', size=7, aspect=.6, legend_out=True, sharex=False)
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+g = sns.FacetGrid(plot_df, col='replicate', size=4, aspect=.6, legend_out=True, sharex=False)
 g.map(sns.violinplot, 'rate', 'metabolite', 'condition', palette=sns.light_palette('#34495e', 3)[1:], order=order)
 g.map(plt.axvline, x=0, ls='-', lw=.5, alpha=.7, color='gray')
+g.despine(trim=True)
 g.set_titles('{col_name}')
 g.set_ylabels('')
 g.set_xlabels('Flux rate (mmol/gDW/h)')

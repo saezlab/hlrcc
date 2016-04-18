@@ -19,7 +19,7 @@ m_genes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/re
 
 
 # -- Import samplesheet
-ss = read_csv('%s/proteomics_samplesheet.txt' % data_dir, sep='\t', index_col=0)
+ss = read_csv('%s/data/proteomics_samplesheet.txt' % wd, sep='\t', index_col=0)
 ss = ss.loc[np.bitwise_and(ss['organism'] == 'human', ss['type'] == 'pp')]
 
 ss_ko = ss[ss['condition'] == 'fh_ko'].index
