@@ -37,6 +37,29 @@ sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM', 'DEPOD']
 k_targets = get_targets(sources, remove_self=False)
 print '[INFO] Kinases targets imported: ', k_targets.shape
 
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.distplot(k_targets.sum(), kde=False, color='#CCCCCC')
+sns.despine()
+plt.title('Kinases/phosphatases substrates (median=%.0f)' % k_targets.sum().median())
+plt.xlabel('Number of substrates (unique phosphorylation-sites)')
+plt.ylabel('Counts')
+plt.gcf().set_size_inches(4, 2)
+plt.savefig('%s/reports/kinases_target_numbers_histogram.pdf' % wd, bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
+
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.distplot(k_targets.sum(1), kde=False, color='#CCCCCC')
+sns.despine()
+plt.title('Substrates number of regulatory kinases/phosphatases (median=%.0f)' % k_targets.sum(1).median())
+plt.xlabel('Number of regulatory kinases/phosphatases')
+plt.ylabel('Count')
+plt.gcf().set_size_inches(4, 2)
+plt.savefig('%s/reports/substrates_target_numbers_histogram.pdf' % wd, bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
+
+
 # Enzymes with regulatory p-sites
 phospho_fc_enzymes = phospho_fc.ix[[i for i in phospho_fc.index if i.split('_')[0] in human_uniprot and human_uniprot[i.split('_')[0]][0] in m_genes]]
 phospho_fc_enzymes = phospho_fc_enzymes.ix[[i for i in phospho_fc_enzymes.index if i in k_targets.index]].sort(inplace=False)
@@ -107,7 +130,10 @@ for edge in sub_network.es:
     source_id, target_id = sub_network.vs[[edge.source, edge.target]]['name']
 
     source = pydot.Node(source_id, style='filled', shape='ellipse', penwidth='0')
+    source.set_label(source_id.replace(source_id.split('_')[0], human_uniprot[source_id.split('_')[0]][0]))
+
     target = pydot.Node(target_id, style='filled', shape='ellipse', penwidth='0')
+    target.set_label(target_id.replace(target_id.split('_')[0], human_uniprot[target_id.split('_')[0]][0]))
 
     for node in [source, target]:
         if node.get_name() in phospho_fc.index:
@@ -115,11 +141,6 @@ for edge in sub_network.es:
 
         elif node.get_name() in k_activity_abs.index:
             node.set_fillcolor('#34495e')
-
-        n_name = node.get_name()
-        n_name = n_name.replace(n_name.split('_')[0], human_uniprot[n_name.split('_')[0]][0])
-
-        node.set_name(n_name)
 
     graph.add_node(source)
     graph.add_node(target)
@@ -140,9 +161,10 @@ plot_df = [(k, 'level 1' if k in k_level1 else 'level 2', human_uniprot[k][0], k
 plot_df = DataFrame(plot_df, columns=['uniprot', 'level', 'name', 'activity'])
 plot_df = plot_df.sort('activity', ascending=False)
 plot_df['name'] = ['PDK' if i.startswith('PDK') else i for i in plot_df['name']]
+plot_df['name'] = ['PDP' if i.startswith('PDP') and not i.startswith('PDPK') else i for i in plot_df['name']]
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.FacetGrid(plot_df, col='level', sharey=False, sharex=False, aspect=0.75)
+g = sns.FacetGrid(plot_df, col='level', sharey=False, sharex=False, aspect=0.75, col_order=['level 1', 'level 2'])
 g.map(sns.barplot, 'name', 'activity', color='#34495e', lw=0, ci=None)
 g.map(plt.axhline, y=0, lw=.3, ls='-', alpha=0.7, color='gray')
 g.set_titles('Kinase {col_name}')

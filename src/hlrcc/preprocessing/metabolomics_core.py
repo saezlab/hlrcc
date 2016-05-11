@@ -5,6 +5,16 @@ from hlrcc import wd
 from sklearn.linear_model import LinearRegression
 from pandas import DataFrame, Series, read_csv
 
+
+def reset_columns(headers):
+    counts = {}
+    for i, col in enumerate(headers):
+        cur_count = counts.get(col, 0)
+        if cur_count > 0:
+            headers[i] = '%s.%d' % (col, cur_count)
+        counts[col] = cur_count + 1
+    return headers
+
 # Import metabolite map
 m_map = read_csv('%s/files/metabolites_map.txt' % wd, sep='\t', index_col=1)
 m_map.index = [i.lower() for i in m_map.index]
@@ -64,6 +74,29 @@ g.set_ylabels('')
 g.set_xlabels('Flux rate (mmol/gDW/h)')
 g.add_legend(title='Condition')
 plt.savefig('%s/reports/metabolomics_core_boxplot.pdf' % wd, bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
+
+#
+plot_df = core.copy()
+plot_df.columns = [c.split('_')[0] for c in plot_df]
+plot_df.columns = reset_columns(list(plot_df.columns))
+plot_df = plot_df.unstack().reset_index()
+plot_df.columns = ['condition', 'metabolite', 'rate']
+plot_df['replicate'] = [int(i.split('.')[1]) if len(i.split('.')) > 1 else 0 for i in plot_df['condition']]
+plot_df['condition'] = [i.split('.')[0] for i in plot_df['condition']]
+
+pallete = sns.light_palette('#34495e', 3)[1:]
+
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+g = sns.factorplot('rate', 'metabolite', data=plot_df, hue='condition', palette=pallete, legend=True, legend_out=True, aspect=.5, size=3, scale=.5, order=order, ci=68)
+plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='-')
+plt.xlabel('mol / gDW / h')
+plt.ylabel('')
+plt.title('Consumption/release rates')
+sns.despine(trim=True)
+plt.gcf().set_size_inches(2.5, 3.5)
+plt.savefig('%s/reports/core_averaged.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 

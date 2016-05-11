@@ -59,7 +59,7 @@ sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3
 sns.lmplot('psite_logfc', 'reaction_cohensd', enzymes_metabol, 'psite', fit_reg=False, palette=pal, scatter_kws={'s': 50, 'edgecolor': 'w', 'linewidth': .5})
 plt.axhline(0, ls='-', lw=.3, c='gray')
 plt.axvline(0, ls='-', lw=.3, c='gray')
-plt.xlabel('p-site (log2 FC)')
+plt.xlabel('Phosphorylation-site (log2 FC)')
 plt.ylabel('Flux rate (mean difference)')
 plt.title('UOK262 (KO vs WT)')
 plt.gcf().set_size_inches(5, 4)
@@ -85,7 +85,7 @@ plot_df['reaction'] = [i[2:] for i in plot_df['reaction']]
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.FacetGrid(plot_df, col='enzyme', col_wrap=4, sharey=False, sharex=False, aspect=1.7, size=1.3)
-g.map(sns.violinplot, 'value', 'reaction', 'condition', orient='h', palette=sns.light_palette('#34495e', 3)[1:], split=True, inner='quart')
+g.map(sns.violinplot, 'value', 'reaction', 'condition', orient='h', palette=sns.light_palette('#34495e', 3)[1:], split=True, inner='quart', cut=0)
 sns.despine(trim=True)
 g.set_titles('{col_name}')
 g.set_ylabels('')

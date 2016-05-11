@@ -1,10 +1,11 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import statsmodels.api as sm
 from hlrcc import wd
 from pymist.enrichment.gsea import gsea
+from pandas.stats.misc import zscore
 from pandas import DataFrame, Series, read_csv
+from sklearn.linear_model.ridge import RidgeCV
 from statsmodels.stats.multitest import multipletests
 from scipy.stats.distributions import hypergeom
 from pymist.utils.read_gmt import read_gmt
@@ -20,9 +21,9 @@ def calc_activity_lm(x, y, alpha=0.001):
 
     ys = y.ix[xs.index]
 
-    lm = sm.OLS(ys, xs).fit_regularized(L1_wt=0, alpha=alpha)
+    lm = RidgeCV().fit(xs, ys)
 
-    return lm.params.drop('Const')
+    return zscore(Series(dict(zip(*(xs.columns, lm.coef_)))))
 
 
 def calc_activity_gsea(x, y, permutations=10000):
@@ -86,7 +87,7 @@ print '[INFO] Corr plotted!'
 
 # Barplot
 plot_df = k_activity_lm.reset_index()
-plot_df = plot_df[plot_df['activity'].abs() > .25]
+plot_df = plot_df[plot_df['activity'].abs() > .5]
 plot_df = plot_df[[i in human_uniprot for i in plot_df['kinase']]]
 plot_df['name'] = [human_uniprot[i][0] for i in plot_df['kinase']]
 
@@ -94,7 +95,7 @@ sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3
 sns.barplot('activity', 'name', data=plot_df, color='#34495e', lw=0)
 plt.axvline(0, ls='-', lw=.3, alpha=.7, c='gray')
 sns.despine(trim=True)
-plt.xlabel('Kinase activities (Ridge)')
+plt.xlabel('Kinase activities (GSEA)')
 plt.ylabel('')
 plt.title('Top kinases/phosphatases activities')
 plt.gcf().set_size_inches(3., 5., forward=True)

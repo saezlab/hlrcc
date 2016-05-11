@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from hlrcc import wd
 from pandas import read_csv
-from pandas.stats.misc import zscore
+from pandas.stats.misc import zscore, DataFrame
 from hlrcc.utils.volcano import volcano
 from pymist.utils.map_peptide_sequence import read_uniprot_genename
 from pymist.reader.sbml_reader import read_sbml_model
@@ -62,6 +62,10 @@ print '[INFO] Export protein level proteomics'
 # Heatmap
 cmap = sns.light_palette((210, 90, 60), input='husl', as_cmap=True)
 
+# df = DataFrame(np.triu(tp.corr(method='pearson'), 1), columns=tp.columns, index=tp.columns).replace(0, np.nan).unstack().reset_index().dropna()
+# df[df['level_0'] == df['level_1']][0].mean()
+# df[df['level_0'] != df['level_1']][0].mean()
+
 sns.clustermap(tp.corr(method='pearson'), annot=True, cmap=cmap)
 plt.savefig('%s/reports/proteomics_replicates_clustermap.pdf' % wd, bbox_inches='tight')
 plt.close('all')
@@ -71,7 +75,7 @@ print '[INFO] Heatmap plotted!'
 tp_fc = read_csv('%s/data/uok262_proteomics_logfc.txt' % wd, sep='\t')
 tp_fc['name'] = [human_uniprot[i.split('_')[0]][0] if i.split('_')[0] in human_uniprot else '' for i in tp_fc.index]
 
-genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH', 'ABL1', 'ABL2']
+genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH']
 
 volcano(
     '%s/reports/proteomics_logfc_volcano.pdf' % wd,
@@ -79,8 +83,9 @@ volcano(
     'logFC',
     'p.value.log10',
     'adj.P.Val',
-    'UOK262 proteomics (KO vs WT)',
+    'Proteomics (KO vs WT)',
     genes_highlight,
     'name'
 )
 plt.close('all')
+print '[INFO] Plot done!'

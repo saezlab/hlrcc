@@ -76,7 +76,7 @@ print '[INFO] Heatmap plotted!'
 pp_fc = read_csv('%s/data/uok262_phosphoproteomics_logfc.txt' % wd, sep='\t')
 pp_fc['name'] = [human_uniprot[i.split('_')[0]][0] if i.split('_')[0] in human_uniprot else '' for i in pp_fc.index]
 
-genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH', 'ABL1', 'ABL2']
+genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH']
 
 volcano(
     '%s/reports/phosphoproteomics_logfc_volcano.pdf' % wd,
@@ -84,8 +84,9 @@ volcano(
     'logFC',
     'p.value.log10',
     'adj.P.Val',
-    'UOK262 phosphoproteomics (KO vs WT)',
+    'Phosphoproteomics (KO vs WT)',
     genes_highlight,
     'name'
 )
 plt.close('all')
+print '[INFO] Plot done!'
