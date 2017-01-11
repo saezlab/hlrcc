@@ -2,7 +2,6 @@
 # Copyright (C) 2017 Emanuel Goncalves
 
 import numpy as np
-from hlrcc import wd
 import seaborn as sns
 import matplotlib.pylab as plt
 from scipy.stats import spearmanr, pearsonr
@@ -19,7 +18,7 @@ m_map = read_csv('./files/metabolites_map.txt', sep='\t', index_col=0)
 m_map = m_map.to_dict()['metabolite']
 
 # Metabolic model
-model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml')
+model = read_sbml_model('./files/recon1.xml')
 model.remove_b_metabolites()
 
 # CORE metabolomics (mmol/gDW/h)
@@ -177,6 +176,6 @@ plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='-')
 plt.xlabel('umol/ugDW/h')
 plt.ylabel('')
 sns.despine(trim=True)
-plt.savefig('%s/reports/fitted_medium.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/fitted_medium.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

@@ -4,7 +4,6 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from hlrcc import wd
 from scipy.stats import wilcoxon
 from pymist.reader.sbml_reader import read_sbml_model
 from pandas import DataFrame, read_csv
@@ -26,13 +25,13 @@ m_model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/re
 m_genes = m_model.get_genes()
 
 # Phosphoproteomics fold-change
-phospho_fc = read_csv('%s/data/uok262_phosphoproteomics_logfc.txt' % wd, sep='\t')
+phospho_fc = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
 phospho_fc['psite'] = ['_'.join(i.split('_')[:2]) for i in phospho_fc.index]
 phospho_fc = phospho_fc[[i.split('_')[0] in human_uniprot for i in phospho_fc['psite']]]
 phospho_fc['psite'] = ['%s_%s' % (human_uniprot[i.split('_')[0]][0], i.split('_')[1]) for i in phospho_fc['psite']]
 
 # Metabolism sampling
-ko_sampling, wt_sampling = [read_csv('%s/data/%s_sampling.txt' % (wd, c), sep='\t', index_col=0) for c in ['UOK262', 'UOK262pFH']]
+ko_sampling, wt_sampling = [read_csv('./data/%s_sampling.txt' % c, sep='\t', index_col=0) for c in ['UOK262', 'UOK262pFH']]
 
 metab_fc = [(r, cohensd(ko_sampling[r], wt_sampling[r]), wilcoxon(ko_sampling[r], wt_sampling[r])[1]) for r in ko_sampling]
 metab_fc = DataFrame(metab_fc, columns=['reaction', 'cohensd', 'wilcoxon'])
@@ -66,7 +65,7 @@ plt.xlabel('Phosphorylation-site (log2 FC)')
 plt.ylabel('Flux rate (mean difference)')
 plt.title('UOK262 (KO vs WT)')
 plt.gcf().set_size_inches(5, 4)
-plt.savefig('%s/reports/psites_reactions_jointplot.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/psites_reactions_jointplot.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Corr plotted!'
 
@@ -94,6 +93,6 @@ g.set_titles('{col_name}')
 g.set_ylabels('')
 g.set_xlabels('Flux rate (umol/ugDW/h)')
 g.add_legend()
-plt.savefig('%s/reports/sampling_boxplot.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/sampling_boxplot.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

@@ -6,7 +6,6 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from pandas import read_csv
-from hlrcc import data_dir, wd
 from pandas.stats.misc import zscore
 from hlrcc.utils.volcano import volcano
 from pymist.utils.map_peptide_sequence import read_uniprot_genename
@@ -18,11 +17,11 @@ human_uniprot = read_uniprot_genename()
 print '[INFO] Uniprot human protein: ', len(human_uniprot)
 
 # -- Import metabolic model
-m_genes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml').get_genes()
+m_genes = read_sbml_model('./files/recon1.xml').get_genes()
 
 
 # -- Import samplesheet
-ss = read_csv('%s/data/proteomics_samplesheet.txt' % wd, sep='\t', index_col=0)
+ss = read_csv('./data/proteomics_samplesheet.txt', sep='\t', index_col=0)
 ss = ss.loc[np.bitwise_and(ss['organism'] == 'human', ss['type'] == 'pp')]
 
 ss_ko = ss[ss['condition'] == 'fh_ko'].index
@@ -33,7 +32,7 @@ ss_wt = ss[ss['condition'] == 'fh_wt'].index
 # Import and process phospho
 info_columns = ['peptide', 'site', 'uniprot']
 
-pp_all = read_csv('%s/data/uok262_phosphoproteomics.txt' % wd, sep='\t').dropna(subset=info_columns)
+pp_all = read_csv('./data/uok262_phosphoproteomics.txt', sep='\t').dropna(subset=info_columns)
 pp = pp_all[np.concatenate((info_columns, ss.index))].replace(0.0, np.NaN)
 print '[INFO] phospho: ', pp.shape
 
@@ -62,7 +61,7 @@ pp[ss.index] = zscore(pp[ss.index])
 
 # Export p-site level phosphoproteomics
 pp.columns = [ss.ix[i, 'condition'] for i in pp.columns]
-pp.to_csv('%s/data/uok262_phosphoproteomics_processed.txt' % wd, sep='\t')
+pp.to_csv('./data/uok262_phosphoproteomics_processed.txt', sep='\t')
 print '[INFO] Export p-site level phosphoproteomics'
 
 
@@ -71,18 +70,18 @@ print '[INFO] Export p-site level phosphoproteomics'
 cmap = sns.light_palette((210, 90, 60), input='husl', as_cmap=True)
 
 sns.clustermap(pp.corr(method='pearson'), annot=True, cmap=cmap)
-plt.savefig('%s/reports/phosphoproteomics_replicates_clustermap.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/phosphoproteomics_replicates_clustermap.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Heatmap plotted!'
 
 # Volcano
-pp_fc = read_csv('%s/data/uok262_phosphoproteomics_logfc.txt' % wd, sep='\t')
+pp_fc = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
 pp_fc['name'] = [human_uniprot[i.split('_')[0]][0] if i.split('_')[0] in human_uniprot else '' for i in pp_fc.index]
 
 genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH']
 
 volcano(
-    '%s/reports/phosphoproteomics_logfc_volcano.pdf' % wd,
+    './reports/phosphoproteomics_logfc_volcano.pdf',
     pp_fc,
     'logFC',
     'p.value.log10',

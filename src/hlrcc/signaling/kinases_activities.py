@@ -4,7 +4,6 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from hlrcc import wd
 from pymist.enrichment.gsea import gsea
 from pandas.stats.misc import zscore
 from pandas import DataFrame, Series, read_csv
@@ -53,7 +52,7 @@ print '[INFO] Kinases targets imported: ', k_targets.shape
 
 
 # -- Import phosphoproteomics data-set
-pp = read_csv('%s/data/uok262_phosphoproteomics_logfc.txt' % wd, sep='\t')
+pp = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
 pp['psite'] = ['_'.join(i.split('_')[:2]) for i in pp.index]
 pp = pp.groupby('psite')['logFC'].median()
 
@@ -62,12 +61,12 @@ pp = pp.groupby('psite')['logFC'].median()
 k_activity_lm = calc_activity_lm(k_targets, pp).sort(inplace=False).dropna()
 k_activity_gsea = calc_activity_gsea(k_targets, pp).sort(inplace=False).dropna()
 
-k_activity_lm.to_csv('%s/data/uok262_kinases_activity_lm.txt' % wd, sep='\t')
-k_activity_gsea.to_csv('%s/data/uok262_kinases_activity_gsea.txt' % wd, sep='\t')
+k_activity_lm.to_csv('./data/uok262_kinases_activity_lm.txt', sep='\t')
+k_activity_gsea.to_csv('./data/uok262_kinases_activity_gsea.txt', sep='\t')
 print '[INFO] Kinases activities estimated'
 
-k_activity_lm = read_csv('%s/data/uok262_kinases_activity_lm.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
-k_activity_gsea = read_csv('%s/data/uok262_kinases_activity_gsea.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
+k_activity_lm = read_csv('./data/uok262_kinases_activity_lm.txt', sep='\t', index_col=0, names=['kinase', 'activity'])
+k_activity_gsea = read_csv('./data/uok262_kinases_activity_gsea.txt', sep='\t', index_col=0, names=['kinase', 'activity'])
 
 # -- Plot kinases activities
 # Corrplot
@@ -84,7 +83,7 @@ plt.axhline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 plt.axvline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 g.plot_marginals(sns.kdeplot, shade=True, color='#34495e')
 g.set_axis_labels('Kinase activities (Ridge)', 'Kinase activities (GSEA)')
-plt.savefig('%s/reports/kinases_activites_jointplot.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/kinases_activites_jointplot.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Corr plotted!'
 
@@ -102,6 +101,6 @@ plt.xlabel('Kinase activities (GSEA)')
 plt.ylabel('')
 plt.title('Top kinases/phosphatases activities')
 plt.gcf().set_size_inches(3., 5., forward=True)
-plt.savefig('%s/reports/kinases_activites_barplot.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/kinases_activites_barplot.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

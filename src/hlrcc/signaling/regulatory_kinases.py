@@ -9,7 +9,6 @@ import numpy as np
 import subprocess
 import seaborn as sns
 import matplotlib.pyplot as plt
-from hlrcc import wd
 from bioservices import UniProt
 from pymist.reader.sbml_reader import read_sbml_model
 from pymist.utils.omnipath_phospho import get_targets
@@ -23,17 +22,17 @@ human_uniprot = read_uniprot_genename()
 print '[INFO] Uniprot human protein: ', len(human_uniprot)
 
 # -- Import metabolic model
-m_genes = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml').get_genes()
+m_genes = read_sbml_model('./files/recon1.xml').get_genes()
 
 
 # -- Import data-sets
 # Phospho fold-change
-phospho_fc = read_csv('%s/data/uok262_phosphoproteomics_logfc.txt' % wd, sep='\t')
+phospho_fc = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
 phospho_fc['psite'] = ['_'.join(i.split('_')[:2]) for i in phospho_fc.index]
 phospho_fc = phospho_fc.groupby('psite')['logFC'].median()
 
 # Import kinase activity
-k_activity = read_csv('%s/data/uok262_kinases_activity_gsea.txt' % wd, sep='\t', index_col=0, names=['kinase', 'activity'])
+k_activity = read_csv('./data/uok262_kinases_activity_gsea.txt', sep='\t', index_col=0, names=['kinase', 'activity'])
 
 # Kinases targets
 sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM', 'DEPOD']
@@ -47,7 +46,7 @@ plt.title('Kinases/phosphatases substrates (median=%.0f)' % k_targets.sum().medi
 plt.xlabel('Number of substrates (unique phosphorylation-sites)')
 plt.ylabel('Counts')
 plt.gcf().set_size_inches(4, 2)
-plt.savefig('%s/reports/kinases_target_numbers_histogram.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/kinases_target_numbers_histogram.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 
@@ -58,7 +57,7 @@ plt.title('Substrates number of regulatory kinases/phosphatases (median=%.0f)' %
 plt.xlabel('Number of regulatory kinases/phosphatases')
 plt.ylabel('Count')
 plt.gcf().set_size_inches(4, 2)
-plt.savefig('%s/reports/substrates_target_numbers_histogram.pdf' % wd, bbox_inches='tight')
+plt.savefig('./reports/substrates_target_numbers_histogram.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 
@@ -151,7 +150,7 @@ for edge in sub_network.es:
     edge = pydot.Edge(source, target)
     graph.add_edge(edge)
 
-graph.write_pdf('%s/reports/psite_upstream_pathway_%s.pdf' % (wd, '_'.join(psites)))
+graph.write_pdf('./reports/psite_upstream_pathway_%s.pdf' % '_'.join(psites))
 print '[INFO] Network PDF saved!\n'
 
 # Plot kinases activities
@@ -172,6 +171,6 @@ g.map(sns.barplot, 'name', 'activity', color='#34495e', lw=0, ci=None)
 g.map(plt.axhline, y=0, lw=.3, ls='-', alpha=0.7, color='gray')
 g.set_titles('Kinase {col_name}')
 sns.despine()
-plt.savefig('%s/reports/psite_upstream_pathway_%s_k_activity.pdf' % (wd, '_'.join(psites)), bbox_inches='tight')
+plt.savefig('./reports/psite_upstream_pathway_%s_k_activity.pdf' % '_'.join(psites), bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
