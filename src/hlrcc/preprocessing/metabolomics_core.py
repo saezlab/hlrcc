@@ -1,110 +1,74 @@
+#!/usr/bin/env python
+# Copyright (C) 2017 Emanuel Goncalves
+
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from hlrcc import wd
-from sklearn.linear_model import LinearRegression
-from pandas import DataFrame, Series, read_csv
+from pandas import read_csv, DataFrame, Series
+from scipy.stats.stats import ttest_ind
+from statsmodels.stats.multitest import multipletests
 
-
-def reset_columns(headers):
-    counts = {}
-    for i, col in enumerate(headers):
-        cur_count = counts.get(col, 0)
-        if cur_count > 0:
-            headers[i] = '%s.%d' % (col, cur_count)
-        counts[col] = cur_count + 1
-    return headers
-
-# Import metabolite map
-m_map = read_csv('%s/files/metabolites_map.txt' % wd, sep='\t', index_col=1)
+# -- Metabolite exchange reaction map
+m_map = read_csv('./files/metabolites_map.txt', sep='\t', index_col=1)
 m_map.index = [i.lower() for i in m_map.index]
 m_map = m_map.to_dict()['exchange']
 
-# Import data-sets
-core_1 = read_csv('%s/data/metabolomics_core_replicate_1.txt' % wd, sep='\t', index_col=0).T
-core_2 = read_csv('%s/data/metabolomics_core_replicate_2.txt' % wd, sep='\t', index_col=0).T
+# -- Import
+metabolomics = read_csv('./data/core/Data_CoRe4.csv')
+metabolites = list(metabolomics.drop(['replicate', 'sample'], axis=1))
 
-# Overlap data-sets
-core_1.index = [i.lower() for i in core_1.index]
-core_2.index = [i.lower() for i in core_2.index]
+# -- Differential rates between conditions
+core = {m: ttest_ind(metabolomics.loc[metabolomics['sample'] == 'UOK262', m], metabolomics.loc[metabolomics['sample'] == 'UOK262pFH', m], equal_var=False) for m in metabolites}
+core = DataFrame([{
+    'metabolite': m,
+    't': core[m][0],
+    'pval': core[m][1],
+    'median_diff': metabolomics.loc[metabolomics['sample'] == 'UOK262', m].median() - metabolomics.loc[metabolomics['sample'] == 'UOK262pFH', m].median(),
+    'UOK262': metabolomics.loc[metabolomics['sample'] == 'UOK262', m].median(),
+    'UOK262pFH': metabolomics.loc[metabolomics['sample'] == 'UOK262pFH', m].median(),
+} for m in core])
+core['fdr'] = multipletests(core['pval'], method='fdr_bh')[1]
+core['exchange'] = [m_map[m] if m in m_map else np.nan for m in core['metabolite']]
+print core.sort('fdr')
 
-core_1.columns = ['%s_%d_rep1' % (core_1.columns[i - 1], i) for i in range(1, len(core_1.columns) + 1)]
-core_2.columns = ['%s_%d_rep2' % (core_2.columns[i - 1], i) for i in range(1, len(core_2.columns) + 1)]
+# --
+plot_df = metabolomics.set_index('sample')[core[core['fdr'] < .05]['metabolite']].unstack().reset_index()
+plot_df.columns = ['metabolite', 'condition', 'rate']
 
-metabolites = set(core_1.index).intersection(core_2.index)
-print '[INFO] Metabolites measured: ', len(metabolites)
+order = list(core[core['fdr'] < .05].sort('median_diff', ascending=False)['metabolite'])
 
-# Merge two data-sets
-core = core_1.join(core_2) * 1000
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+g = sns.FacetGrid(plot_df, row='metabolite', row_order=order, size=1., aspect=1., legend_out=True, sharex=False)
+g.map(sns.violinplot, 'rate', 'condition', palette=sns.light_palette('#34495e', 3)[1:], split=False)
+g.map(plt.axvline, x=0, ls='-', lw=.5, alpha=.7, color='gray')
+g.despine(trim=True)
+g.set_titles('{row_name}')
+g.set_ylabels('')
+g.set_xlabels('Flux rate (umol/ugDW/h)')
+plt.savefig('./reports/metabolomics_core_boxplot.pdf', bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
 
-
-# -- Plot
-# Heatmap
-rep_cmap = dict(zip(*(['rep1', 'rep2'], sns.light_palette('#e74c3c', 3)[1:])))
-cod_cmap = dict(zip(*(['UOK262', 'UOK262pFH'], sns.light_palette('#3498db', 3)[1:])))
-
-plot_df = core[core.std(1) > .1]
+# --
+plot_df = metabolomics.copy()
+plot_df = plot_df.set_index(plot_df['sample'] + '_' + plot_df['replicate'].astype(str) + '_' + plot_df.index.astype(str)).drop(['sample', 'replicate'], axis=1)[order].T
 plot_df = plot_df.corr(method='spearman')
 
-row_color = [[rep_cmap[i.split('_')[2]] for i in plot_df.index], [cod_cmap[i.split('_')[0]] for i in plot_df.index]]
-col_color = [[rep_cmap[i.split('_')[2]] for i in plot_df], [cod_cmap[i.split('_')[0]] for i in plot_df]]
+rep_cmap = dict(zip(*(['1', '2', '3'], sns.light_palette('#e74c3c', 4).as_hex()[1:])))
+cod_cmap = dict(zip(*(['UOK262', 'UOK262pFH'], sns.light_palette('#3498db', 3).as_hex()[1:])))
+
+row_color = DataFrame({'Replicate': {i: rep_cmap[i.split('_')[1]] for i in plot_df.index}, 'Condition': {i: cod_cmap[i.split('_')[0]] for i in plot_df.index}})
+col_color = DataFrame({'Replicate': {i: rep_cmap[i.split('_')[1]] for i in plot_df}, 'Condition': {i: cod_cmap[i.split('_')[0]] for i in plot_df}})
 
 cmap = sns.light_palette('#34495e', 10, as_cmap=True)
-sns.set(style='white', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-sns.clustermap(plot_df, annot=True, cmap=cmap, lw=.3, row_colors=row_color, col_colors=col_color)
-plt.savefig('%s/reports/metabolomics_core_clutermap.pdf' % wd, bbox_inches='tight')
+sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.clustermap(plot_df, cmap=cmap, lw=.3, row_colors=row_color, col_colors=col_color, figsize=(5, 5))
+plt.savefig('./reports/metabolomics_core_clutermap.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Heatmap plotted!'
 
-# Boxplot
-plot_df = core.unstack().reset_index()
-plot_df.columns = ['sample', 'metabolite', 'rate']
-plot_df['condition'] = [i.split('_')[0] for i in plot_df['sample']]
-plot_df['replicate'] = ['Replicate %s' % i.split('_')[2][-1:] for i in plot_df['sample']]
 
-order = list(core.std(1).sort(inplace=False, ascending=False).index)
-
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.FacetGrid(plot_df, col='replicate', size=4, aspect=.6, legend_out=True, sharex=False)
-g.map(sns.violinplot, 'rate', 'metabolite', 'condition', palette=sns.light_palette('#34495e', 3)[1:], order=order)
-g.map(plt.axvline, x=0, ls='-', lw=.5, alpha=.7, color='gray')
-g.despine(trim=True)
-g.set_titles('{col_name}')
-g.set_ylabels('')
-g.set_xlabels('Flux rate (mmol/gDW/h)')
-g.add_legend(title='Condition')
-plt.savefig('%s/reports/metabolomics_core_boxplot.pdf' % wd, bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
-
-#
-plot_df = core.copy()
-plot_df.columns = [c.split('_')[0] for c in plot_df]
-plot_df.columns = reset_columns(list(plot_df.columns))
-plot_df = plot_df.unstack().reset_index()
-plot_df.columns = ['condition', 'metabolite', 'rate']
-plot_df['replicate'] = [int(i.split('.')[1]) if len(i.split('.')) > 1 else 0 for i in plot_df['condition']]
-plot_df['condition'] = [i.split('.')[0] for i in plot_df['condition']]
-
-pallete = sns.light_palette('#34495e', 3)[1:]
-
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.factorplot('rate', 'metabolite', data=plot_df, hue='condition', palette=pallete, legend=True, legend_out=True, aspect=.5, size=3, scale=.5, order=order, ci=68)
-plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='-')
-plt.xlabel('mol / gDW / h')
-plt.ylabel('')
-plt.title('Consumption/release rates')
-sns.despine(trim=True)
-plt.gcf().set_size_inches(2.5, 3.5)
-plt.savefig('%s/reports/core_averaged.pdf' % wd, bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
-
-
-# -- Export
-#  Map metabolite to exchange reaction
-core.index = [m_map[i] for i in core.index]
-
-# Export data-set
-core.to_csv('%s/data/uok262_metabolomics_core_processed.txt' % wd, sep='\t')
+# -- Export data-set
+core.to_csv('./data/uok262_metabolomics_core_processed.txt', sep='\t')
 print '[INFO] Export metabolomics'
+

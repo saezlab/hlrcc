@@ -1,11 +1,13 @@
+#!/usr/bin/env python
+# Copyright (C) 2017 Emanuel Goncalves
+
 import time
 import seaborn as sns
 import matplotlib.pylab as plt
 import numpy as np
-from hlrcc import wd
 from pymist.reader.sbml_reader import read_sbml_model
 from pymist.sampler import sample
-from pandas import read_csv, DataFrame
+from pandas import read_csv, DataFrame, Series
 from pymist.simulation import min_differences
 
 
@@ -15,19 +17,18 @@ model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/reco
 model.remove_b_metabolites()
 
 # CORE metabolomics (mmol/gDW/h)
-core = read_csv('%s/data/uok262_metabolomics_core_processed.txt' % wd, sep='\t', index_col=0)
-core.columns = [c.split('_')[0] for c in core]
-core = DataFrame({c: core[c].median(1) for c in set(core)})
-core = core[core.abs() > .1]
-core = core.dropna(how='all')
+core = read_csv('./data/uok262_metabolomics_core_processed.txt', sep='\t', index_col=0).dropna().set_index('exchange')
+core = core[core['fdr'] < .05]
 
 # Medium
-medium = read_csv('%s/files/DMEM_41966_medium.txt' % wd, sep='\t').dropna()
+medium = read_csv('./files/DMEM_41966_medium.txt', sep='\t').dropna()
 
-# O2 consumption (mmol/gDW/h)
+# O2 consumption (umol/ugDW/h)
 o2_exch = 'R_EX_o2_e_'
-core_o2 = read_csv('%s/data/uok262_metabolomics_core_o2_processed.txt' % wd, sep='\t', index_col=0).to_dict()[o2_exch]
 
+core_o2 = read_csv('./data/uok262_metabolomics_core_o2_processed.txt', sep='\t', index_col=0)[o2_exch]
+core_o2 /= 1000
+core_o2 = core_o2.to_dict()
 
 # -- Fit medium
 conditions = ['UOK262', 'UOK262pFH']
@@ -63,22 +64,23 @@ for condition in conditions:
     # Minimise differences between simulations and measurements
     constrains = {}
     for r in reduced_model.get_exchanges(check_matrix=True):
-        if r in exchange_rates.index:
+        if r == o2_exch:
+            constrains[r] = -core_o2[condition]
+        elif r in exchange_rates.index:
             constrains[r] = exchange_rates.ix[r, condition]
-        elif r == 'R_EX_o2_e_':
-            constrains['R_EX_o2_e_'] = core_o2[condition]
 
     fitted_medium = min_differences(reduced_model, constrains).get_net_conversions(reduced_model, check_matrix=True)
+    print Series(fitted_medium).sort_values()
 
     # Constraint metabolic model lower bound
     for reaction in fitted_medium:
-        if reaction in exchange_rates.index:
+        if (reaction in exchange_rates.index) or (reaction == o2_exch):
             reduced_model.set_constraint(reaction, lower_bound=fitted_medium[reaction], upper_bound=fitted_medium[reaction])
 
     # -- Metabolic sampling
-    samples = sample(reduced_model, 10000, 2500, verbose=1)
+    samples = sample(reduced_model, 200, 2500, verbose=1)
     samples = DataFrame(samples, columns=reduced_model.reactions.keys())
 
     # -- Export sampling
-    samples.to_csv('%s/data/%s_sampling.txt' % (wd, condition), sep='\t', index=False)
+    samples.to_csv('./data/%s_sampling.txt' % condition, sep='\t', index=False)
     print '[INFO] Sampling finished: ', condition

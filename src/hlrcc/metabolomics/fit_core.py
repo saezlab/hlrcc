@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# Copyright (C) 2017 Emanuel Goncalves
+
 import numpy as np
 from hlrcc import wd
 import seaborn as sns
@@ -12,7 +15,7 @@ from pymist.simulation import min_differences
 conditions = ['UOK262', 'UOK262pFH']
 
 # Import metabolite map
-m_map = read_csv('%s/files/metabolites_map.txt' % wd, sep='\t', index_col=0)
+m_map = read_csv('./files/metabolites_map.txt', sep='\t', index_col=0)
 m_map = m_map.to_dict()['metabolite']
 
 # Metabolic model
@@ -20,19 +23,14 @@ model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/reco
 model.remove_b_metabolites()
 
 # CORE metabolomics (mmol/gDW/h)
-core = read_csv('%s/data/uok262_metabolomics_core_processed.txt' % wd, sep='\t', index_col=0)
-core.columns = [c.split('_')[0] for c in core]
-core = DataFrame({c: core[c].median(1) for c in set(core)})
-core = core[core.abs() > .1]
-core = core.dropna(how='all')
+core = read_csv('./data/uok262_metabolomics_core_processed.txt', sep='\t', index_col=0).dropna().set_index('exchange')
+core = core[core['fdr'] < .05]
 
 # Medium
-medium = read_csv('%s/files/DMEM_41966_medium.txt' % wd, sep='\t').dropna()
+medium = read_csv('./files/DMEM_41966_medium.txt', sep='\t').dropna()
 
 # O2 consumption (mmol/gDW/h)
 o2_exch = 'R_EX_o2_e_'
-core_o2 = read_csv('%s/data/uok262_metabolomics_core_o2_processed.txt' % wd, sep='\t', index_col=0).to_dict()[o2_exch]
-
 
 # -- Estimate exchange reactions
 # Set condition
@@ -71,8 +69,8 @@ for condition in conditions:
         for r in reduced_model.get_exchanges(check_matrix=True):
             if r in exchange_rates.drop(metabolite).index:
                 constrains[r] = exchange_rates.ix[r, condition]
-            elif r == 'R_EX_o2_e_':
-                constrains['R_EX_o2_e_'] = core_o2[condition]
+            # elif r == 'R_EX_o2_e_':
+            #     constrains['R_EX_o2_e_'] = core_o2[condition]
 
         fitted_medium = min_differences(reduced_model, constrains).get_net_conversions(reduced_model, check_matrix=True)
 
@@ -106,8 +104,9 @@ g = sns.jointplot(
 plt.axhline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 plt.axvline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 g.plot_marginals(sns.kdeplot, shade=True, color='#34495e')
-g.set_axis_labels('Measured (mmol/gDW/h)', 'Predicted (mmol/gDW/h)')
-plt.savefig('%s/reports/fitted_medium_loo_cor.pdf' % wd, bbox_inches='tight')
+g.set_axis_labels('Measured (umol/ugDW/h)', 'Predicted (umol/ugDW/h)')
+plt.gcf().set_size_inches(3, 3)
+plt.savefig('./reports/fitted_medium_loo_cor.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 
@@ -146,8 +145,6 @@ for condition in conditions:
     for r in reduced_model.get_exchanges(check_matrix=True):
         if r in exchange_rates.index:
             constrains[r] = exchange_rates.ix[r, condition]
-        elif r == 'R_EX_o2_e_':
-            constrains['R_EX_o2_e_'] = core_o2[condition]
 
     fitted_medium = min_differences(reduced_model, constrains).get_net_conversions(reduced_model, check_matrix=True)
 
@@ -168,7 +165,7 @@ mediums = DataFrame(mediums)
 print mediums
 
 # Plot
-plot_df = mediums.ix[mediums.eval('-'.join(conditions)).abs().sort(inplace=False, ascending=False).index].unstack().reset_index().dropna()
+plot_df = mediums.ix[mediums.eval('-'.join(conditions)).abs().sort_values(inplace=False, ascending=False).index].unstack().reset_index().dropna()
 plot_df.columns = ['condition', 'exchange', 'rate']
 plot_df['metabolite'] = [model.metabolites[model.get_reactants(e)[0]] for e in plot_df['exchange']]
 
@@ -177,7 +174,7 @@ pallete = sns.light_palette('#34495e', 3)[1:]
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.factorplot('rate', 'metabolite', data=plot_df, hue='condition', palette=pallete, legend=True, legend_out=True, aspect=.5, size=3, scale=.5)
 plt.axvline(0, c='#95a5a6', lw=.3, alpha=.7, ls='-')
-plt.xlabel('mol / gDW / h')
+plt.xlabel('umol/ugDW/h')
 plt.ylabel('')
 sns.despine(trim=True)
 plt.savefig('%s/reports/fitted_medium.pdf' % wd, bbox_inches='tight')

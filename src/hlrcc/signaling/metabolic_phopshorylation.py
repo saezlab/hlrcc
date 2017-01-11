@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# Copyright (C) 2017 Emanuel Goncalves
+
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -84,12 +87,13 @@ plot_df['enzyme'] = [r_enz[i] for i in plot_df['reaction']]
 plot_df['reaction'] = [i[2:] for i in plot_df['reaction']]
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.FacetGrid(plot_df, col='enzyme', col_wrap=4, sharey=False, sharex=False, aspect=1.7, size=1.3)
+g = sns.FacetGrid(plot_df, col='enzyme', col_wrap=4, sharey=False, sharex=False, aspect=1.7, size=1.3, legend_out=True)
 g.map(sns.violinplot, 'value', 'reaction', 'condition', orient='h', palette=sns.light_palette('#34495e', 3)[1:], split=True, inner='quart', cut=0)
 sns.despine(trim=True)
 g.set_titles('{col_name}')
 g.set_ylabels('')
-g.set_xlabels('Flux rate (mmol/gDW/h)')
+g.set_xlabels('Flux rate (umol/ugDW/h)')
+g.add_legend()
 plt.savefig('%s/reports/sampling_boxplot.pdf' % wd, bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

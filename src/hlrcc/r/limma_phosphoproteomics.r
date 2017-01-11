@@ -1,3 +1,5 @@
+# Copyright (C) 2017 Emanuel Goncalves
+
 library(limma)
 
 wd <- '~/Projects/projects/hlrcc/'
