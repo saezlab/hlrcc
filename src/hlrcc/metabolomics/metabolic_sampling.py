@@ -5,8 +5,6 @@ import time
 import seaborn as sns
 import matplotlib.pylab as plt
 import numpy as np
-from pymist.reader.sbml_reader import read_sbml_model
-from pymist.sampler import sample
 from pandas import read_csv, DataFrame, Series
 from pymist.simulation import min_differences
 
