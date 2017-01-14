@@ -15,7 +15,7 @@ simplify(model, inplace=True)
 print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len(model.reactions), len(model.genes))
 
 # Sampler
-solution = sample(model, n_samples=1000, n_steps=200, verbose=1)
+solution = sample(model, n_samples=1000, n_steps=250, n_steps_projection=50, verbose=1)
 print solution
 
 # Plotting

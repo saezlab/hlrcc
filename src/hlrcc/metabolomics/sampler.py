@@ -30,7 +30,7 @@ def get_warmup_points(model):
     fva = FVA(model)
 
     # Get upper and lower bounds
-    reactions, lb, ub = zip(*[(r, fva[r][0].fobj if fva[r][0] else -9999, fva[r][1].fobj if fva[r][1] else 9999) for r in fva])
+    reactions, lb, ub = zip(*[(r, fva[r][0].fobj if fva[r][0] else -np.Inf, fva[r][1].fobj if fva[r][1] else np.Inf) for r in fva])
     reactions, lb, ub = np.array(reactions), np.array(lb), np.array(ub)
 
     # Warm-up points
@@ -218,46 +218,46 @@ def sample(model, n_samples=1000, n_steps=50, n_steps_projection=25, verbose=0):
     return DataFrame(samples[warmup_points.shape[1]:], columns=reactions)
 
 
-def fix_futile_cycles(model, samples, verbose=1):
-    """ Fixes the distribution values of the reactions in futile cycles, by fixing all the other reactions values
-        and minimising the futile cycle reactions values.
-
-    Arguements:
-        model: Model -- a metabolic constrain-based model
-        samples: DataFrame -- pandas DataFrame returned by the sample function - rows samples, columns reactions
-
-    Returns:
-        solution: DataFrame -- pandas DataFrame same structure as the samples argument
-    """
-    m = model.deepcopy()
-
-    # Set lower bound of all ireversible reactions to 0
-    [m.set_constraint(k, lower_bound=0) for k, (lb, ub) in m.get_reactions_bounds().items() if lb > 0]
-
-    # Close exachnge reactions bounds: lower = upper = 0
-    [m.set_constraint(r, lower_bound=0, upper_bound=0) for r in m.get_exchanges()]
-
-    # Run FVA
-    fva = FVA(m)
-
-    # Identify reactions in futile cycles
-    futile_cycle_reactions = dict((r, 1) for r, (lb, ub) in fva.items() if lb < 0 or ub > 0)
-
-    # Verbose
-    if verbose > 0:
-        print '[INFO] ' + str(len(futile_cycle_reactions)) + ' futile cycle reactions found: ', futile_cycle_reactions.keys()
-
-    # Fix reactions values and minimise futile cycle reactions
-    if len(futile_cycle_reactions) > 0:
-        for i in samples.index:
-            [m.set_constraint(r, samples.loc[i, r], samples.loc[i, r]) for r in samples.columns if r not in futile_cycle_reactions]
-
-            fba = FBA(m, futile_cycle_reactions, maximize=False, opt_abs_values=True)
-
-            for futile_r in futile_cycle_reactions:
-                samples.ix[i, futile_r] = fba.values[futile_r]
-
-    return samples
+# def fix_futile_cycles(model, samples, verbose=1):
+#     """ Fixes the distribution values of the reactions in futile cycles, by fixing all the other reactions values
+#         and minimising the futile cycle reactions values.
+#
+#     Arguements:
+#         model: Model -- a metabolic constrain-based model
+#         samples: DataFrame -- pandas DataFrame returned by the sample function - rows samples, columns reactions
+#
+#     Returns:
+#         solution: DataFrame -- pandas DataFrame same structure as the samples argument
+#     """
+#     m = model.deepcopy()
+#
+#     # Set lower bound of all ireversible reactions to 0
+#     [m.set_constraint(k, lower_bound=0) for k, (lb, ub) in m.get_reactions_bounds().items() if lb > 0]
+#
+#     # Close exachnge reactions bounds: lower = upper = 0
+#     [m.set_constraint(r, lower_bound=0, upper_bound=0) for r in m.get_exchanges()]
+#
+#     # Run FVA
+#     fva = FVA(m)
+#
+#     # Identify reactions in futile cycles
+#     futile_cycle_reactions = dict((r, 1) for r, (lb, ub) in fva.items() if lb < 0 or ub > 0)
+#
+#     # Verbose
+#     if verbose > 0:
+#         print '[INFO] ' + str(len(futile_cycle_reactions)) + ' futile cycle reactions found: ', futile_cycle_reactions.keys()
+#
+#     # Fix reactions values and minimise futile cycle reactions
+#     if len(futile_cycle_reactions) > 0:
+#         for i in samples.index:
+#             [m.set_constraint(r, samples.loc[i, r], samples.loc[i, r]) for r in samples.columns if r not in futile_cycle_reactions]
+#
+#             fba = FBA(m, futile_cycle_reactions, maximize=False, opt_abs_values=True)
+#
+#             for futile_r in futile_cycle_reactions:
+#                 samples.ix[i, futile_r] = fba.values[futile_r]
+#
+#     return samples
 
 
 def FVA(model, obj_percentage=0, reactions=None, constraints=None, loopless=False, internal=None, solver=None):
