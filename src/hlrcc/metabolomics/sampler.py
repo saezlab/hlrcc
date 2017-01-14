@@ -6,12 +6,15 @@ import random as rand
 from pandas import DataFrame
 from scipy.linalg.lapack import dgesdd
 from scipy.linalg.blas import dgemm
-from framed import FBA, FVA
+from warnings import warn
+from collections import OrderedDict
+from framed import FBA, solver_instance, looplessFBA
+from framed.solvers.solver import Status
 
 
-def set_null_space(matrix, tol=1e-12):
+def set_null_space(S, tol=1e-12):
     # Single value decomposition
-    u, s, vt, info = dgesdd(matrix)
+    u, s, vt, info = dgesdd(S)
 
     # Singular values samller than tol are considered zero
     rank = (s > tol).sum()
@@ -22,17 +25,18 @@ def set_null_space(matrix, tol=1e-12):
     return n, n.transpose()
 
 
-def get_warmup_points(model, reactions):
+def get_warmup_points(model):
     # Calculate warm-up points running FVA
-    fva, simulations = FVA(model, return_simulations=True)
+    fva = FVA(model)
 
     # Get upper and lower bounds
-    lb, ub = np.array(zip(*[fva[r] for r in reactions]))
+    reactions, lb, ub = zip(*[(r, fva[r][0].fobj if fva[r][0] else -9999, fva[r][1].fobj if fva[r][1] else 9999) for r in fva])
+    reactions, lb, ub = np.array(reactions), np.array(lb), np.array(ub)
 
     # Warm-up points
-    warmup_points = simulations.loc[reactions].values
+    warmup_points = np.array([[fva[r][i].values[r_in] for r_in in reactions] for r in reactions for i in [0, 1] if fva[r][i]]).T
 
-    return lb, ub, warmup_points
+    return lb, ub, warmup_points, reactions
 
 
 def project_onto_null_space(a, n, nt, lb, ub, n_steps_projection, reactions, tol=1e-4, verbose=0):
@@ -120,21 +124,17 @@ def get_point(current_point, centre_point, samples, lb, ub, tol=1e-7, verbose=0)
     return accept, current_point
 
 
+def get_stoichiometric_matrix(model, reactions):
+    S = np.array([[model.reactions[r].stoichiometry[m] if m in model.reactions[r].stoichiometry else 0 for m in model.metabolites] for r in reactions]).T
+    return S
+
+
 def sample(model, n_samples=1000, n_steps=50, n_steps_projection=25, verbose=0):
     # Set general variables
     in_null_space, n_pts_discarded = False, 0
 
-    # Get reactions names
-    reactions = np.array(model.reactions.keys())
-
-    # Get stoichiometic matrix as numpy arrays
-    S = model.get_stoichiometric_matrix().loc[:, reactions].values
-
-    # Compute the null space of the model
-    n, nt = set_null_space(S)
-
     # Calculate warm-up points
-    lb, ub, warmup_points = get_warmup_points(model, reactions)
+    lb, ub, warmup_points, reactions = get_warmup_points(model)
 
     # Calculate centre point
     centre_point = warmup_points.mean(1)
@@ -142,13 +142,19 @@ def sample(model, n_samples=1000, n_steps=50, n_steps_projection=25, verbose=0):
     # Move warm-up point towards the centre
     warmup_points = np.multiply(warmup_points, 0.33) + np.multiply(np.resize(centre_point, (warmup_points.shape[0], 1)), 0.67).dot(np.ones((1, warmup_points.shape[1])))
 
+    # Get stoichiometic matrix as numpy arrays
+    S = get_stoichiometric_matrix(model, reactions)
+
+    # Compute the null space of the model
+    n, nt = set_null_space(S)
+
     # Initialise samples with warm-up points
     samples = warmup_points.transpose().copy()
     while len(samples) < n_samples + warmup_points.shape[1]:
         # Check discarded samples
         if n_pts_discarded >= 1000:
             print '[ERROR] Too many points discarded, sampling will be aborted: %d' % n_pts_discarded
-            return None
+            # return None
 
         elif n_pts_discarded >= 100:
             print '[WARNING] Discarded point: %d' % n_pts_discarded
@@ -253,3 +259,74 @@ def fix_futile_cycles(model, samples, verbose=1):
 
     return samples
 
+
+def FVA(model, obj_percentage=0, reactions=None, constraints=None, loopless=False, internal=None, solver=None):
+    """ Run Flux Variability Analysis (FVA).
+
+    Arguments:
+        model (CBModel): a constraint-based model
+        obj_percentage (float): minimum percentage of growth rate (default 0.0, max: 1.0)
+        reactions (list): list of reactions to analyze (default: all)
+        constraints (dict): additional constraints (optional)
+        loopless (bool): run looplessFBA internally (very slow) (default: false)
+        internal (list): list of internal reactions for looplessFBA (optional)
+        solver (Solver): pre-instantiated solver instance (optional)
+
+    Returns:
+        dict: flux variation ranges
+    """
+
+    _constraints = {}
+    if constraints:
+        _constraints.update(constraints)
+
+    if not solver:
+        solver = solver_instance(model)
+
+    if obj_percentage > 0:
+        target = model.detect_biomass_reaction()
+        solution = FBA(model, objective={target: 1}, constraints=constraints, solver=solver)
+        _constraints[target] = (obj_percentage * solution.fobj, None)
+
+    if not reactions:
+        reactions = model.reactions.keys()
+
+    variability = OrderedDict([(r_id, [None, None]) for r_id in reactions])
+
+    for r_id in reactions:
+        if loopless:
+            solution = looplessFBA(model, {r_id: 1}, True, constraints=_constraints, internal=internal,
+                                   solver=solver, get_values=True)
+        else:
+            solution = FBA(model, {r_id: 1}, True, constraints=_constraints, solver=solver, get_values=True)
+
+        if solution.status == Status.OPTIMAL:
+            variability[r_id][0] = solution
+        elif solution.status == Status.UNBOUNDED:
+            pass
+        elif solution.status == Status.INF_OR_UNB:
+            pass
+        elif solution.status == Status.INFEASIBLE:
+            warn('Infeasible solution status')
+        else:
+            warn('Unknown solution status')
+
+    for r_id in reactions:
+        if loopless:
+            solution = looplessFBA(model, {r_id: 1}, False, constraints=_constraints, internal=internal,
+                                   solver=solver, get_values=True)
+        else:
+            solution = FBA(model, {r_id: 1}, False, constraints=_constraints, solver=solver, get_values=True)
+
+        if solution.status == Status.OPTIMAL:
+            variability[r_id][1] = solution
+        elif solution.status == Status.UNBOUNDED:
+            pass
+        elif solution.status == Status.INF_OR_UNB:
+            pass
+        elif solution.status == Status.INFEASIBLE:
+            warn('Infeasible solution status')
+        else:
+            warn('Unknown solution status')
+
+    return variability

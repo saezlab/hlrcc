@@ -18,9 +18,11 @@ model.remove_metabolite('M_biomass_c')
 model.add_reaction_from_str('R_ATPM: M_h2o_c + M_atp_c --> M_adp_c + M_pi_c + M_h_c')
 print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len(model.reactions), len(model.genes))
 
+# FVA to simplify model
 s_model = simplify(model, inplace=False)
 print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(s_model.metabolites), len(s_model.reactions), len(s_model.genes))
 
+# Compare ATP yields with reported
 pred_atp_yields = {}
 for aa in atp_yileds.index:
     env = {r: (0, s_model.reactions[r].ub) for r in s_model.reactions if r.startswith('R_sink_') or r.startswith('R_EX_')}
