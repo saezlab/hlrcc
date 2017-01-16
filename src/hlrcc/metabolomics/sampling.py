@@ -2,9 +2,9 @@
 # Copyright (C) 2017 Emanuel Goncalves
 
 import matplotlib.pyplot as plt
-from sampler import sample
-from pandas import read_csv
+from pandas import read_csv, DataFrame
 from framed import load_cbmodel, simplify, FBA, MOMA, pFBA
+from hlrcc.metabolomics.sampler import sample
 
 # -- Imports
 # CORE metabolomics (mmol/gDW/h)
@@ -36,7 +36,6 @@ print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len
 conditions = ['UOK262', 'UOK262pFH']
 
 # c = 'UOK262'
-sampling = {}
 for c in conditions:
     print c
 
@@ -66,5 +65,7 @@ for c in conditions:
     atp_solution = FBA(model, objective={'R_ATPM': 1}, constraints=env)
     print atp_solution
 
-    # # Sampler
-    # sampling[c] = sample(model, n_samples=100, n_steps=200, verbose=1)
+    # Sampler
+    sampling = sample(model, n_samples=100, n_steps=200, verbose=1, constraints=env)
+    sampling.to_csv('./data/%s_sampling.txt' % c, sep='\t', index=False)
+    print '[INFO] Sampling finished: ', c
