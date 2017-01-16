@@ -10,7 +10,6 @@ from statsmodels.stats.multitest import multipletests
 
 # -- Metabolite exchange reaction map
 m_map = read_csv('./files/metabolites_map.txt', sep='\t', index_col=1)
-m_map.index = [i.lower() for i in m_map.index]
 m_map = m_map.to_dict()['exchange']
 
 # -- Import

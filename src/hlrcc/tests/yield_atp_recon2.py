@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 # Copyright (C) 2017 Emanuel Goncalves
 
-import matplotlib.pyplot as plt
-from pandas import DataFrame, read_csv
-from framed.experimental.medium import minimal_medium
-from framed import load_cbmodel, simplify, FVA, FBA
-from framed.cobra.plotting import plot_flux_envelope
+from pandas import read_csv
+from framed import load_cbmodel, simplify, FBA
 
 medium = read_csv('./files/DMEM_41966_medium.txt', sep='\t').dropna().set_index('exchange')
 atp_yileds = read_csv('./files/recon2.2_atp_yield.csv').dropna().set_index('exchange')
