@@ -25,9 +25,9 @@ def set_null_space(S, tol=1e-12):
     return n, n.transpose()
 
 
-def get_warmup_points(model):
+def get_warmup_points(model, constraints=None):
     # Calculate warm-up points running FVA
-    fva = FVA(model)
+    fva = FVA(model, constraints=constraints)
 
     # Get upper and lower bounds
     reactions, lb, ub = zip(*[(r, fva[r][0].fobj if fva[r][0] else -np.Inf, fva[r][1].fobj if fva[r][1] else np.Inf) for r in fva])
@@ -129,12 +129,12 @@ def get_stoichiometric_matrix(model, reactions):
     return S
 
 
-def sample(model, n_samples=1000, n_steps=50, n_steps_projection=25, verbose=0):
+def sample(model, n_samples=1000, n_steps=50, n_steps_projection=25, constraints=None, verbose=0):
     # Set general variables
     in_null_space, n_pts_discarded = False, 0
 
     # Calculate warm-up points
-    lb, ub, warmup_points, reactions = get_warmup_points(model)
+    lb, ub, warmup_points, reactions = get_warmup_points(model, constraints)
 
     # Calculate centre point
     centre_point = warmup_points.mean(1)
