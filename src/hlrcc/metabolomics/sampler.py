@@ -27,7 +27,8 @@ def set_null_space(S, tol=1e-12):
 
 def get_warmup_points(model, constraints=None):
     # Calculate warm-up points running FVA
-    fva = FVA(model, constraints=constraints)
+    solver = solver_instance(model)
+    fva = FVA(model, constraints=constraints, solver=solver)
 
     # Get upper and lower bounds
     reactions, lb, ub = zip(*[(r, fva[r][0].fobj if fva[r][0] else -np.Inf, fva[r][1].fobj if fva[r][1] else np.Inf) for r in fva])

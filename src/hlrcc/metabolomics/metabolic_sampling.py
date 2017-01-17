@@ -76,10 +76,10 @@ for condition in conditions:
         if (reaction in exchange_rates.index) or (reaction == o2_exch):
             reduced_model.set_constraint(reaction, lower_bound=fitted_medium[reaction], upper_bound=fitted_medium[reaction])
 
-    # -- Metabolic sampling
-    samples = sample(reduced_model, 200, 2500, verbose=1)
-    samples = DataFrame(samples, columns=reduced_model.reactions.keys())
-
-    # -- Export sampling
-    samples.to_csv('./data/%s_sampling.txt' % condition, sep='\t', index=False)
-    print '[INFO] Sampling finished: ', condition
+    # # -- Metabolic sampling
+    # samples = sample(reduced_model, 200, 2500, verbose=1)
+    # samples = DataFrame(samples, columns=reduced_model.reactions.keys())
+    #
+    # # -- Export sampling
+    # samples.to_csv('./data/%s_sampling.txt' % condition, sep='\t', index=False)
+    # print '[INFO] Sampling finished: ', condition
