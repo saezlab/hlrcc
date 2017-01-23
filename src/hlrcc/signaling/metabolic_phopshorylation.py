@@ -5,24 +5,17 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.stats import wilcoxon
-from pymist.reader.sbml_reader import read_sbml_model
 from pandas import DataFrame, read_csv
+from framed import load_cbmodel
 from statsmodels.stats.multitest import multipletests
-from pymist.utils.map_peptide_sequence import read_uniprot_genename
-
-
-def cohensd(c0, c1):
-    # return (np.mean(c0) - np.mean(c1)) / (np.sqrt((np.std(c0) ** 2 + np.std(c1) ** 2) / 2))
-    return np.mean(c0) - np.mean(c1)
 
 
 # -- Imports
 # Uniprot id mapping
-human_uniprot = read_uniprot_genename()
+
 
 # Metabolic model
-m_model = read_sbml_model('/Users/emanuel/Projects/resources/metabolic_models/recon1.xml')
-m_genes = m_model.get_genes()
+model = load_cbmodel('./files/recon2.2.xml', flavor='cobra')
 
 # Phosphoproteomics fold-change
 phospho_fc = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
@@ -33,7 +26,7 @@ phospho_fc['psite'] = ['%s_%s' % (human_uniprot[i.split('_')[0]][0], i.split('_'
 # Metabolism sampling
 ko_sampling, wt_sampling = [read_csv('./data/%s_sampling.txt' % c, sep='\t', index_col=0) for c in ['UOK262', 'UOK262pFH']]
 
-metab_fc = [(r, cohensd(ko_sampling[r], wt_sampling[r]), wilcoxon(ko_sampling[r], wt_sampling[r])[1]) for r in ko_sampling]
+metab_fc = [(r, ko_sampling[r].mean() - wt_sampling[r].mean(), wilcoxon(ko_sampling[r], wt_sampling[r])[1]) for r in ko_sampling]
 metab_fc = DataFrame(metab_fc, columns=['reaction', 'cohensd', 'wilcoxon'])
 metab_fc = metab_fc[metab_fc['wilcoxon'] != 0]
 metab_fc['adj.P.Val'] = multipletests(metab_fc['wilcoxon'], method='fdr_bh')[1]

@@ -63,11 +63,17 @@ core[metabolites] = core[metabolites] * 1.5 / 1000
 # Delta to control (u moles)
 core = DataFrame({m: {i: core.ix[i, m] - core.ix[[x for x in core.index if x.startswith(i.split('_')[0] + '_M_')], m].mean() for i in core.index if '_M_' not in i} for m in metabolites})
 
-# Quantification by DW (divide by ug dry weight generated/well/h): umol/ugDW/h
+# Quantification by DW (divide by ug dry weight generated/well): umol/ugDW
 core = DataFrame({m: {i: core.ix[i, m] / dry_weights.ix[int(i.split('_')[0]), i.split('_')[1]] for i in core.index if '_M_' not in i} for m in metabolites})
 
+# Divide per hour: umol/ugDW/h
+core /= 24
+
+# Convert to m mol: mmol/gDW/h
+core *= 1000
+
 # Export
-core.to_csv('./data/core/Data_CoRe4_all_umol_ugDW_h.csv')
+core.to_csv('./data/core/Data_CoRe4_all_mmol_gDW_h.csv')
 print core
 
 # ---- Statistical analysis
@@ -94,25 +100,27 @@ core_ttest['exchange'] = [m_map[m] if m in m_map else np.nan for m in core_ttest
 print core_ttest.sort('fdr')
 
 # -- Boxplots
-plot_df = core[core_ttest[core_ttest['fdr'] < .05]['metabolite']].reset_index().drop('index', axis=1).set_index('condition').unstack().reset_index()
+fdr_thres = .05
+
+plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('index', axis=1).set_index('condition').unstack().reset_index()
 plot_df.columns = ['metabolite', 'condition', 'rate']
 
-order = list(core_ttest[core_ttest['fdr'] < .05].sort('diff', ascending=False)['metabolite'])
+order = list(core_ttest[core_ttest['fdr'] < fdr_thres].sort('diff', ascending=False)['metabolite'])
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.FacetGrid(plot_df, row='metabolite', row_order=order, size=1., aspect=1., legend_out=True, sharex=False)
-g.map(sns.violinplot, 'rate', 'condition', palette=sns.light_palette('#34495e', 3)[1:], split=False)
+g.map(sns.violinplot, 'rate', 'condition', palette=sns.light_palette('#34495e', 3)[1:], split=False, cut=0)
 g.map(plt.axvline, x=0, ls='-', lw=.5, alpha=.7, color='gray')
 g.despine(trim=True)
 g.set_titles('{row_name}')
 g.set_ylabels('')
-g.set_xlabels('Flux rate (umol/ugDW/h)')
+g.set_xlabels('Flux rate (mmol/gDW/h)')
 plt.savefig('./reports/metabolomics_core_boxplot.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 
-# -- Heatmap
-plot_df = core[core_ttest[core_ttest['fdr'] < .05]['metabolite']].reset_index().drop('condition', axis=1).set_index('index').copy()
+# -- Corr heatmap
+plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('condition', axis=1).set_index('index').copy()
 plot_df = plot_df.T.corr(method='spearman')
 
 rep_cmap = dict(zip(*(['180716', '220716', '280716'], sns.light_palette('#e74c3c', 4).as_hex()[1:])))
@@ -129,6 +137,22 @@ plt.savefig('./reports/metabolomics_core_clutermap.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Heatmap plotted!'
 
+# -- Heatmap
+plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('condition', axis=1).set_index('index').copy().T
+
+rep_cmap = dict(zip(*(['180716', '220716', '280716'], sns.light_palette('#e74c3c', 4).as_hex()[1:])))
+cod_cmap = dict(zip(*(['UOK262', 'UOK262pFH'], sns.light_palette('#3498db', 3).as_hex()[1:])))
+cod_map = {'262': 'UOK262', 'pFH': 'UOK262pFH'}
+
+col_color = DataFrame({'Replicate': {i: rep_cmap[i.split('_')[0]] for i in plot_df}, 'Condition': {i: cod_cmap[cod_map[i.split('_')[1]]] for i in plot_df}})
+
+cmap = sns.light_palette('#34495e', 10, as_cmap=True)
+sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.clustermap(plot_df, cmap=cmap, lw=.3, col_colors=col_color, figsize=(5, 5), z_score=0)
+plt.savefig('./reports/metabolomics_core_heatmap.pdf', bbox_inches='tight')
+plt.close('all')
+print '[INFO] Heatmap plotted!'
+
 # -- Export data-set
-core.to_csv('./data/uok262_metabolomics_core_processed.csv')
+core_ttest.to_csv('./data/uok262_metabolomics_core_processed.csv')
 print '[INFO] Export metabolomics'
