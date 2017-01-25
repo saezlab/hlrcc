@@ -8,16 +8,6 @@ import matplotlib.pyplot as plt
 from pandas import read_csv
 from pandas.stats.misc import zscore
 from hlrcc.utils.volcano import volcano
-from pymist.utils.map_peptide_sequence import read_uniprot_genename
-from pymist.reader.sbml_reader import read_sbml_model
-
-
-# -- Uniprot names
-human_uniprot = read_uniprot_genename()
-print '[INFO] Uniprot human protein: ', len(human_uniprot)
-
-# -- Import metabolic model
-m_genes = read_sbml_model('./files/recon1.xml').get_genes()
 
 
 # -- Import samplesheet
@@ -46,7 +36,7 @@ print '[INFO] Considering proteotypic peptides: ', pp.shape
 
 # Consider single phosphorylated peptides
 pp = pp[[len(i.split('+')) == 1 for i in pp['site']]]
-print '[INFO] Consider singly phosphorylated peptides: ', pp.shape
+print '[INFO] Consider single phosphorylated peptides: ', pp.shape
 
 # Create p-site IDs
 pp['index'] = pp.index
@@ -66,6 +56,9 @@ print '[INFO] Export p-site level phosphoproteomics'
 
 
 # -- Plot
+umap = read_csv('./files/protein-coding_gene.txt', sep='\t').dropna(subset=['uniprot_ids'])
+umap = umap.groupby('uniprot_ids')['symbol'].agg(lambda x: ';'.join([g for i in x for g in i.split('|')]))
+
 # Heatmap
 cmap = sns.light_palette((210, 90, 60), input='husl', as_cmap=True)
 
@@ -76,7 +69,7 @@ print '[INFO] Heatmap plotted!'
 
 # Volcano
 pp_fc = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
-pp_fc['name'] = [human_uniprot[i.split('_')[0]][0] if i.split('_')[0] in human_uniprot else '' for i in pp_fc.index]
+pp_fc['name'] = [umap[i.split('_')[0]] if i.split('_')[0] in umap else '' for i in pp_fc.index]
 
 genes_highlight = ['VIM', 'PDHA1', 'GAPDH', 'FH']
 

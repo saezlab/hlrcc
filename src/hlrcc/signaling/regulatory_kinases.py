@@ -1,28 +1,19 @@
 #!/usr/bin/env python
 # Copyright (C) 2017 Emanuel Goncalves
 
-import re
 import pydot
 import igraph
-import pickle
 import numpy as np
-import subprocess
 import seaborn as sns
 import matplotlib.pyplot as plt
-from bioservices import UniProt
-from pymist.reader.sbml_reader import read_sbml_model
 from pymist.utils.omnipath_phospho import get_targets
 from statsmodels.distributions import ECDF
-from pandas import DataFrame, Series, read_csv
-from pymist.utils.map_peptide_sequence import read_uniprot_genename
+from pandas import DataFrame, read_csv
 
 
 # -- Import Uniprot id mapping
-human_uniprot = read_uniprot_genename()
-print '[INFO] Uniprot human protein: ', len(human_uniprot)
-
-# -- Import metabolic model
-m_genes = read_sbml_model('./files/recon1.xml').get_genes()
+umap = read_csv('./files/protein-coding_gene.txt', sep='\t').dropna(subset=['uniprot_ids'])
+umap = umap.groupby('uniprot_ids')['symbol'].agg(lambda x: ';'.join([g for i in x for g in i.split('|')]))
 
 
 # -- Import data-sets
@@ -38,33 +29,6 @@ k_activity = read_csv('./data/uok262_kinases_activity_gsea.txt', sep='\t', index
 sources = ['HPRD', 'PhosphoSite', 'Signor', 'phosphoELM', 'DEPOD']
 k_targets = get_targets(sources, remove_self=False)
 print '[INFO] Kinases targets imported: ', k_targets.shape
-
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-sns.distplot(k_targets.sum(), kde=False, color='#CCCCCC')
-sns.despine()
-plt.title('Kinases/phosphatases substrates (median=%.0f)' % k_targets.sum().median())
-plt.xlabel('Number of substrates (unique phosphorylation-sites)')
-plt.ylabel('Counts')
-plt.gcf().set_size_inches(4, 2)
-plt.savefig('./reports/kinases_target_numbers_histogram.pdf', bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
-
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-sns.distplot(k_targets.sum(1), kde=False, color='#CCCCCC')
-sns.despine()
-plt.title('Substrates number of regulatory kinases/phosphatases (median=%.0f)' % k_targets.sum(1).median())
-plt.xlabel('Number of regulatory kinases/phosphatases')
-plt.ylabel('Count')
-plt.gcf().set_size_inches(4, 2)
-plt.savefig('./reports/substrates_target_numbers_histogram.pdf', bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
-
-
-# Enzymes with regulatory p-sites
-phospho_fc_enzymes = phospho_fc.ix[[i for i in phospho_fc.index if i.split('_')[0] in human_uniprot and human_uniprot[i.split('_')[0]][0] in m_genes]]
-phospho_fc_enzymes = phospho_fc_enzymes.ix[[i for i in phospho_fc_enzymes.index if i in k_targets.index]].sort(inplace=False)
 
 
 # -- Build Kinase/Substrate network
@@ -117,7 +81,7 @@ print '[INFO] Sub-network largest component simplified: ', network_i.summary()
 
 
 # -- Analyse p-site up-stream signalling pathway
-psites = ['P08559_S232']  # Q01581_S495
+psites = ['P04406_S83']  # Q01581_S495, P04406_S83, P08559_S232
 
 sub_network = network_i.subgraph(network_i.neighborhood(vertices=psites, order=3, mode='IN')[0])
 print '[INFO] Subnetwork: ', sub_network.summary()
@@ -132,10 +96,10 @@ for edge in sub_network.es:
     source_id, target_id = sub_network.vs[[edge.source, edge.target]]['name']
 
     source = pydot.Node(source_id, style='filled', shape='ellipse', penwidth='0')
-    source.set_label(source_id.replace(source_id.split('_')[0], human_uniprot[source_id.split('_')[0]][0]))
+    source.set_label(source_id.replace(source_id.split('_')[0], umap[source_id.split('_')[0]]))
 
     target = pydot.Node(target_id, style='filled', shape='ellipse', penwidth='0')
-    target.set_label(target_id.replace(target_id.split('_')[0], human_uniprot[target_id.split('_')[0]][0]))
+    target.set_label(target_id.replace(target_id.split('_')[0], umap[target_id.split('_')[0]]))
 
     for node in [source, target]:
         if node.get_name() in phospho_fc.index:
@@ -159,7 +123,7 @@ k_level1 = set(sub_network.subgraph(sub_network.neighborhood(vertices=psites, or
 k_level2 = set(sub_network.subgraph(sub_network.neighborhood(vertices=psites, order=3, mode='IN')[0]).vs['name']) - k_level1
 k_level2 = {k for k in k_level2 if len(k.split('_')) == 1}
 
-plot_df = [(k, 'level 1' if k in k_level1 else 'level 2', human_uniprot[k][0], k_activity.ix[k].values[0]) for k in sub_network.vs['name'] if len(k.split('_')) == 1 and k in k_activity.index]
+plot_df = [(k, 'level 1' if k in k_level1 else 'level 2', umap[k], k_activity.ix[k].values[0]) for k in sub_network.vs['name'] if len(k.split('_')) == 1 and k in k_activity.index]
 plot_df = DataFrame(plot_df, columns=['uniprot', 'level', 'name', 'activity'])
 plot_df = plot_df.sort('activity', ascending=False)
 plot_df['name'] = ['PDK' if i.startswith('PDK') else i for i in plot_df['name']]

@@ -23,11 +23,16 @@ print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len
 umap = read_csv('./files/protein-coding_gene.txt', sep='\t').dropna(subset=['uniprot_ids'])
 umap = umap.groupby('uniprot_ids')['symbol'].agg(lambda x: ';'.join([g for i in x for g in i.split('|')]))
 
+prot_fc = read_csv('./data/uok262_proteomics_logfc.txt', sep='\t')
+prot_fc['gene'] = [umap.ix[i] if i in umap.index else np.nan for i in prot_fc.index]
+
 phospho_fc = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
 phospho_fc['psite'] = ['_'.join(i.split('_')[:2]) for i in phospho_fc.index]
 phospho_fc = phospho_fc[[i.split('_')[0] in umap.index for i in phospho_fc['psite'] if i.split('_')[0]]]
 phospho_fc['gene'] = [umap.ix[i.split('_')[0]] for i in phospho_fc['psite']]
 print phospho_fc[phospho_fc['adj.P.Val'] < .05].sort('logFC')
+
+phospho_fc[phospho_fc['gene'] == 'GAPDH'].sort('logFC')
 
 
 # -- Reactions map
@@ -36,7 +41,7 @@ gmap['hgnc_id'] = ['G_' + i.replace(':', '_') for i in gmap['hgnc_id']]
 gmap = gmap.set_index('hgnc_id')['symbol']
 
 r_genes = {r: {gmap.ix[g] for g in model.reactions[r].gpr.get_genes() if g in gmap.index} for r in model.reactions if model.reactions[r].gpr}
-
+m_genes = {gmap.ix[g] for r in model.reactions if model.reactions[r].gpr for g in model.reactions[r].gpr.get_genes() if g in gmap}
 
 # --
 metab_fc = DataFrame(
@@ -50,9 +55,11 @@ print metab_fc[(metab_fc['fdr'] < .05)].dropna().sort('diff')
 
 
 # --
-pgenes = set(phospho_fc.ix[(phospho_fc['adj.P.Val'] < .05) & (phospho_fc['logFC'].abs() > .5), 'gene'])
+thres_phospho, thres_flux = .5, .5
 
-link = metab_fc[(metab_fc['fdr'] < .05) & (metab_fc['diff'].abs() > .5)].copy().dropna(subset=['genes']).reset_index()
+pgenes = set(phospho_fc.ix[(phospho_fc['adj.P.Val'] < .05) & (phospho_fc['logFC'].abs() > thres_phospho), 'gene'])
+
+link = metab_fc[(metab_fc['fdr'] < .05) & (metab_fc['diff'].abs() > thres_flux)].copy().dropna(subset=['genes']).reset_index()
 link = link[[len(set(i.split(';')).intersection(pgenes)) > 0 for i in link['genes']]]
 link = link[link['genes'] != 'CMPK1']
 
@@ -77,8 +84,9 @@ plt.savefig('./reports/psites_reactions_jointplot.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Corr plotted!'
 
+
 # -- Plot
-reactions = ['R_OIVD2m', 'R_OIVD3m', 'R_GAPD']
+reactions = ['R_OIVD2m', 'R_OIVD3m', 'R_GAPD', 'R_PDHm']
 
 ko_samples = ko_sampling[reactions].unstack().reset_index()
 ko_samples.columns = ['reaction', 'index', 'flux']
