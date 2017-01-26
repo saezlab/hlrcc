@@ -4,6 +4,7 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy.stats.stats import pearsonr
 from pandas import read_csv, DataFrame, Series
 from hlrcc.metabolomics.sampler import sample
 from framed import load_cbmodel, simplify, FBA, MOMA, pFBA, FVA, lMOMA, reaction_deletion, gene_deletion
@@ -140,3 +141,89 @@ print '[INFO] Plot done'
 # -- Export simulations
 fluxes = DataFrame({c: res_fba[c]['atp'].values for c in res_fba})
 fluxes.to_csv('./data/pfba_atp.csv')
+print '[INFO] Exported'
+
+
+# --
+fluxes = DataFrame({c: res_fba[c]['atp'].values for c in res_fba})
+fluxes['delta'] = fluxes['UOK262'].abs() - fluxes['UOK262pFH'].abs()
+# fluxes = fluxes[fluxes['delta'].abs() > 1e-5]
+print fluxes.sort('delta')
+
+gmap = read_csv('./files/protein-coding_gene.txt', sep='\t')
+gmap['hgnc_id'] = ['G_' + i.replace(':', '_') for i in gmap['hgnc_id']]
+gmap = gmap.set_index('hgnc_id')['symbol']
+
+umap = read_csv('./files/protein-coding_gene.txt', sep='\t').dropna(subset=['uniprot_ids'])
+umap = umap.groupby('uniprot_ids')['symbol'].agg(lambda x: ';'.join([g for i in x for g in i.split('|')]))
+
+# Proteomics
+proteomics = read_csv('./data/uok262_proteomics_logfc.txt', sep='\t')
+proteomics['gene'] = [umap.ix[i] if i in umap.index else np.nan for i in proteomics.index]
+proteomics_fc = proteomics.groupby('gene')['logFC'].mean()
+print proteomics_fc.sort_values()
+
+# # Proteomics
+# proteomics = read_csv('./data/uok262_proteomics_tmt.csv')
+# proteomics['gene'] = [umap.ix[i] if i in umap.index else np.nan for i in proteomics['Accession']]
+# proteomics = proteomics.dropna()
+# proteomics = proteomics.groupby('gene').median().mean(1)
+# proteomics_fc = proteomics.copy()
+# print proteomics_fc.sort_values()
+#
+# # Rna-seq
+# ensembl = read_csv('./files/ensembl_id_map_human.txt', sep='\t', index_col=0).dropna().to_dict()['HGNC symbol']
+#
+# rnaseq = read_csv('./data/UOK262_rnaseq_logfc.txt', sep='\t', index_col=0)
+# rnaseq['gene'] = [ensembl[i] if i in ensembl else np.NaN for i in rnaseq.index]
+# rnaseq = rnaseq.dropna()
+# rnaseq_fc = rnaseq.groupby('gene')['logFC'].median()
+# print rnaseq_fc.sort_values()
+#
+# # Phosphoproteomics
+# phospho = read_csv('./data/uok262_phosphoproteomics_logfc.txt', sep='\t')
+# phospho['psite'] = ['%s_%s' % (umap[i.split('_')[0]], i.split('_')[1]) if i.split('_')[0] in umap else np.nan for i in phospho.index]
+# phospho = phospho.dropna()
+# phospho['gene'] = [i.split('_')[0] for i in phospho['psite']]
+# phospho_fc = phospho.groupby('psite')['logFC'].median()
+# print phospho_fc.sort_values()
+#
+# psites_map = phospho.groupby('gene')['psite'].agg(lambda x: set(x)).to_dict()
+
+r_genes = {r: {gmap.ix[g] for g in model.reactions[r].gpr.get_genes() if g in gmap.index} for r in model.reactions if model.reactions[r].gpr}
+pathways = {r: model.reactions[r].metadata['SUBSYSTEM'] for r in model.reactions if 'SUBSYSTEM' in model.reactions[r].metadata and model.reactions[r].metadata['SUBSYSTEM'] != ''}
+
+plot_df = DataFrame([
+    {'reaction': r, 'gene': g, 'pathway': pathways[r], 'flux': fluxes.ix[r, 'delta'], 'protein': proteomics_fc[g]}
+    for r in fluxes.index if r in fluxes.index and r in r_genes and r in pathways for g in r_genes[r] if g in proteomics_fc
+])
+
+plot_df = plot_df[plot_df['flux'].abs() > 1e-5]
+plot_df = plot_df.groupby('pathway').mean().sort('protein')
+print plot_df
+
+cor, pval = pearsonr(plot_df['flux'], plot_df['protein'])
+print cor, pval
+
+p_highlight = ['Oxidative phosphorylation', 'NAD metabolism', 'Citric acid cycle', 'Glutamate metabolism', 'Cysteine Metabolism', 'Glycine, serine, alanine and threonine metabolism']
+pal = dict(zip(*(p_highlight + ['Others'], sns.color_palette('Set2', n_colors=6).as_hex() + ['#D3D3D3'])))
+
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.regplot('flux', 'protein', plot_df, fit_reg=True, color='#34495e', line_kws={'lw': .3})
+for p in plot_df.index:
+    if p in p_highlight:
+        sns.regplot('flux', 'protein', plot_df.ix[[p]], fit_reg=False, label=p, color=pal[p], scatter_kws={'s': 40, 'lw': 0})
+    else:
+        sns.regplot('flux', 'protein', plot_df.ix[[p]], fit_reg=False, color=pal['Others'], scatter_kws={'s': 40, 'lw': 0})
+
+sns.despine()
+plt.axhline(0, ls='-', lw=.3, c='gray')
+plt.axvline(0, ls='-', lw=.3, c='gray')
+plt.xlabel('Flux mmol/gDW/h (UOK262 - UOK262pFH)')
+plt.ylabel('Protein log2 FC (UOK262 - UOK262pFH)')
+plt.legend(loc=3)
+plt.title('Pearson r: %.2f, p-value: %.2e' % (cor, pval))
+plt.gcf().set_size_inches(3, 3)
+plt.savefig('./reports/protein_flux_scatter.pdf', bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
