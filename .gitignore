@@ -6,3 +6,4 @@ gurobi.log
 *.sqlite
 *_sampling.txt
 figures/*
+uniprot_sprot.fasta

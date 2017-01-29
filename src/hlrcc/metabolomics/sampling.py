@@ -67,6 +67,9 @@ for c in conditions:
     if c == 'UOK262':
         env.update({'R_FUM': (0, 0), 'R_FUMm': (0, 0)})
 
+    env.update({'R_ABTArm': (0, 0)})
+    env.update({'R_biomass_reaction': 0.027207 if c == 'UOK262' else 0.024858})
+
     # Minimise differences of measured rates: [(r, meas[r], moma_sol.values[r]) for r in meas]
     meas = {r: core.ix[r, c] if r != o2_exch else core_o2[c] for r in list(core.index) + [o2_exch] if r in model.reactions}
 
@@ -116,6 +119,7 @@ sns.factorplot('condition', 'atp', data=plot_df, palette=pal, kind='bar', lw=0)
 plt.axhline(4, ls='--', lw=.3, c='gray')
 plt.axhline(32, ls='--', lw=.3, c='gray')
 plt.gcf().set_size_inches(1, 2)
+plt.yticks(range(0, 36, 4))
 plt.ylabel('ATP yield (per mol Glucose)')
 plt.xlabel('')
 plt.savefig('./reports/atp_yield_bar.pdf', bbox_inches='tight')
