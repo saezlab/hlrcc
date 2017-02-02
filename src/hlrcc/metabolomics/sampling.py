@@ -18,6 +18,19 @@ gmap = read_csv('./files/non_alt_loci_set.txt', sep='\t')
 gmap['hgsn'] = ['G_' + i.replace(':', '_') for i in gmap['hgnc_id']]
 gmap = gmap.groupby('hgsn')['symbol'].agg(lambda x: list(x)[0])
 
+
+# -- Import metabolic model
+model = load_cbmodel('./files/recon2.2.xml', flavor='cobra')
+model.detect_biomass_reaction()
+model.remove_metabolite('M_biomass_c')
+model.add_reaction_from_str('R_ATPM: M_h2o_c + M_atp_c --> M_adp_c + M_pi_c + M_h_c')
+print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len(model.reactions), len(model.genes))
+
+# FVA to simplify model
+simplify(model)
+print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len(model.reactions), len(model.genes))
+
+
 # -- Imports
 # RNA-seq
 transcriptomics = Series.from_csv('./data/UOK262_rnaseq_preprocessed.csv')
@@ -38,18 +51,6 @@ core_o2 = read_csv('./data/uok262_metabolomics_core_o2_processed.txt', sep='\t',
 core_o2 *= -1
 
 
-# -- Import metabolic model
-model = load_cbmodel('./files/recon2.2.xml', flavor='cobra')
-model.detect_biomass_reaction()
-model.remove_metabolite('M_biomass_c')
-model.add_reaction_from_str('R_ATPM: M_h2o_c + M_atp_c --> M_adp_c + M_pi_c + M_h_c')
-print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len(model.reactions), len(model.genes))
-
-# FVA to simplify model
-simplify(model)
-print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len(model.reactions), len(model.genes))
-
-
 # -- Non-expressed transcripts
 inactive_genes = {g for g in model.genes if gmap[g] not in transcriptomics and gmap[g] not in proteomics}
 inactive_reactions = deleted_genes_to_reactions(model, inactive_genes)
@@ -67,42 +68,30 @@ for c in conditions:
     res_fba[c] = {}
 
     # MOMA with environmental conditions restricted to metabolites in the medium
-    env = {r: (-10, model.reactions[r].ub) if r in list(medium.index) else (0, model.reactions[r].ub) for r in model.reactions if r.startswith('R_EX_') or r.startswith('R_sink_')}
+    env = {r: (medium.ix[r, 'lb'], model.reactions[r].ub) if r in list(medium.index) else (0, model.reactions[r].ub) for r in model.reactions if r.startswith('R_EX_') or r.startswith('R_sink_') or r.startswith('R_DM_')}
 
     # Add FH KO to tumour cell lines
     if c == 'UOK262':
         env.update({'R_FUM': (0, 0), 'R_FUMm': (0, 0)})
 
-    env.update({'R_biomass_reaction': 0.027207 if c == 'UOK262' else 0.024858})
+    # Fix Biomass
+    env.update({'R_biomass_reaction': 0.02721 if c == 'UOK262' else 0.02486})
 
     # Minimise differences of measured rates: [(r, meas[r], moma_sol.values[r]) for r in meas]
-    meas = {r: core.ix[r, c] if r != o2_exch else core_o2[c] for r in list(core.index) + [o2_exch] if r in model.reactions}
-
+    meas = {r: core.ix[r, c] if r != o2_exch else core_o2[c] for r in list(core.index) if r in model.reactions}
     moma_sol = lMOMA(model, reference=meas, constraints=env)
     env.update({r: moma_sol.values[r] for r in meas})
     print moma_sol
 
-    #
-    inactive_env = env.copy()
-    inactive_env = lMOMA(model, constraints=inactive_env, reference={r: 0 for r in inactive_reactions})
-
-    env.update({r: 0 for r in inactive_reactions if inactive_env.values[r] == 0})
-    print inactive_env
-    # {r: inactive_env.values[r] for r in inactive_reactions if inactive_env.values[r] != 0}
-
-    #
+    # Save environmental conditions
     res_env[c] = env
 
     # Biomass and ATP production
     res_fba[c]['biomass'] = pFBA(model, objective={'R_biomass_reaction': 1}, constraints=env)
-    print res_fba[c]['biomass'].pre_solution.fobj
+    print 'Max biomass: ', res_fba[c]['biomass'].pre_solution.fobj
 
     res_fba[c]['atp'] = pFBA(model, objective={'R_ATPM': 1}, constraints=env)
-    print res_fba[c]['atp'].pre_solution.fobj
-
-    # solution = res_fba[c]['atp']
-    # print solution.show_metabolite_balance('M_mal_L_m', model)
-    # print solution.values['R_SUCOASm']
+    print 'Max ATP: ', res_fba[c]['atp'].pre_solution.fobj
 
     # # Sampler
     # env['R_ATPM'] = res_fba[c]['atp'].pre_solution.fobj
@@ -110,6 +99,7 @@ for c in conditions:
     # sampling = sample(model, n_samples=200, n_steps=1000, verbose=1, constraints=env)
     # sampling.to_csv('./data/%s_sampling.txt' % c, sep='\t', index=False)
     # print '[INFO] Sampling finished: ', c
+
 
 # -- Plotting
 pal = dict(zip(*(conditions, sns.light_palette('#34495e', 3, reverse=True).as_hex()[:-1])))
@@ -166,50 +156,42 @@ plt.close('all')
 print '[INFO] Plot done'
 
 
-# -- Export simulations
-fluxes = DataFrame({c: res_fba[c]['atp'].values for c in res_fba})
-fluxes.to_csv('./data/pfba_atp.csv')
-print '[INFO] Exported'
-
-
-# --
+# -- Plotting fluxes
 fluxes = DataFrame({c: res_fba[c]['atp'].values for c in res_fba})
 fluxes['delta'] = fluxes['UOK262'].abs() - fluxes['UOK262pFH'].abs()
 # fluxes = fluxes[fluxes['delta'].abs() > 1e-5]
-print fluxes.sort('delta')
 
-# --
-ko_sampling, wt_sampling = [read_csv('./data/%s_sampling.txt' % c, sep='\t') for c in ['UOK262', 'UOK262pFH']]
+cmap = sns.diverging_palette(10, 220, sep=5, n=20, as_cmap=True)
 
-fluxes = DataFrame(
-    {r: {'UOK262': ko_sampling[r].mean(), 'UOK262pFH': wt_sampling[r].mean(), 'wilcoxon': wilcoxon(ko_sampling[r], wt_sampling[r])[1]} for r in ko_sampling}
-).T
-fluxes['delta'] = fluxes['UOK262'].abs() - fluxes['UOK262pFH'].abs()
-fluxes['fdr'] = multipletests(fluxes['wilcoxon'], method='bonferroni')[1]
-print fluxes.sort('delta')
-
-
-# -- Flux pathways heatmaps
+# Flux pathways heatmaps
 plot_df = fluxes.ix[rpathways['glycolysis'] + rpathways['mitochondria']].dropna()
 
-pal, cmap = dict(zip(*(['glycolysis', 'mitochondria'], sns.color_palette('Set2', n_colors=6).as_hex()))), sns.diverging_palette(10, 220, n=7, as_cmap=True)
-rcol = Series({i: pal[p] for i in plot_df.index for p in rpathways if i in rpathways[p]}, name='Pathway')
+pal = dict(zip(*(['glycolysis', 'mitochondria'], sns.color_palette('Set2', n_colors=6).as_hex())))
+rcol = Series({i: pal[p] for i in plot_df.index for p in rpathways if i in rpathways[p]}, name='')
 
 sns.set(style='white', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.clustermap(plot_df, linewidths=.5, mask=(plot_df == 0), cmap=cmap, row_cluster=False, col_cluster=False, row_colors=rcol)
-plt.gcf().set_size_inches(1, 5)
+plt.gcf().set_size_inches(.5, 5)
 plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
 plt.savefig('./reports/flux_heatmap.pdf', bbox_inches='tight')
+plt.savefig('./reports/flux_heatmap.png', bbox_inches='tight', dpi=300)
 plt.close('all')
 print '[INFO] Plot exported'
 
 
-# --
-gmap = read_csv('./files/protein-coding_gene.txt', sep='\t')
-gmap['hgnc_id'] = ['G_' + i.replace(':', '_') for i in gmap['hgnc_id']]
-gmap = gmap.set_index('hgnc_id')['symbol']
+# Exchange reactions
+plot_df = fluxes.ix[{r for c in conditions for r in res_env[c] if res_fba[c]['atp'].values[r] != 0}].sort_values('UOK262')
+
+sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+g = sns.clustermap(plot_df, linewidths=.5, mask=(plot_df == 0), cmap=cmap, row_cluster=False, col_cluster=False)
+plt.gcf().set_size_inches(.5, 6)
+plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
+plt.savefig('./reports/flux_heatmap_exchange.pdf', bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot exported'
 
 
+# Protein vs Flux
 r_genes = {r: {gmap.ix[g] for g in model.reactions[r].gpr.get_genes() if g in gmap.index} for r in model.reactions if model.reactions[r].gpr}
 pathways = {r: model.reactions[r].metadata['SUBSYSTEM'] for r in model.reactions if 'SUBSYSTEM' in model.reactions[r].metadata and model.reactions[r].metadata['SUBSYSTEM'] != ''}
 
@@ -220,7 +202,6 @@ plot_df = DataFrame([
 
 plot_df = plot_df[plot_df['flux'].abs() > 1e-5]
 plot_df = plot_df.groupby('pathway').mean().sort('protein')
-print plot_df
 
 cor, pval = pearsonr(plot_df['flux'], plot_df['protein'])
 print cor, pval
