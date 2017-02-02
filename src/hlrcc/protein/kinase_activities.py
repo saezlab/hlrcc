@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from pandas import Series, DataFrame
 from statsmodels.stats.weightstats import ztest
-from hlrcc.utils import get_ktargets
+from hlrcc.utils import get_ktargets, get_ktargets_omnipath
 
 
 # -- Import data-sets
@@ -16,7 +16,7 @@ phospho_tmt = Series.from_csv('./data/uok262_phosphoproteomics_tmt_preprocessed.
 
 
 # -- Import kinase-substrate interaction network
-k_targets = get_ktargets(in_vivo_only=True)
+k_targets = get_ktargets_omnipath(ref=['PhosphoSite', 'phosphoELM', 'Signor', 'HPRD'])
 
 
 # -- Calculate kinase enrichment

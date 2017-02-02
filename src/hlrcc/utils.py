@@ -67,6 +67,8 @@ def get_ktargets(mapfile='./files/Kinase_Substrate_Dataset.txt', organism='human
 
 
 def get_ktargets_omnipath(mapfile='./files/omnipath_ptms_all.txt', ref=['Signor', 'PhosphoSite']):
+    # ref = ['Li2012', 'MIMP', 'PhosphoNetworks', 'dbPTM', 'PhosphoSite', 'DEPOD', 'phosphoELM', 'Signor', 'HPRD']
+
     # Import
     t = read_csv(mapfile, sep='\t')
 
@@ -194,6 +196,7 @@ def read_uniprot_genename(fasta_file=None, os='Homo sapiens'):
     return uniprot2genename
 
 
+# -- ID conversion maps
 def build_uniprot_genesymbol_map(mapfile='./files/HUMAN_9606_idmapping.txt'):
     # Build map
     gmap = read_csv(mapfile, sep='\t')
