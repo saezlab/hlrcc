@@ -88,16 +88,18 @@ for c in conditions:
 
     # Biomass and ATP production
     res_fba[c]['biomass'] = pFBA(model, objective={'R_biomass_reaction': 1}, constraints=env)
-    print 'Max biomass: ', res_fba[c]['biomass'].pre_solution.fobj
+    print 'Max biomass: ', abs(res_fba[c]['biomass'].pre_solution.fobj / res_env['UOK262pFH']['R_EX_glc_e'][0])
 
     res_fba[c]['atp'] = pFBA(model, objective={'R_ATPM': 1}, constraints=env)
-    print 'Max ATP: ', res_fba[c]['atp'].pre_solution.fobj
+    print 'Max ATP: ', abs(res_fba[c]['atp'].pre_solution.fobj / res_env['UOK262pFH']['R_EX_glc_e'][0])
+
+    # solution = res_fba[c]['atp']
+    # print solution.show_metabolite_balance('M_co2_m', model)
+    # print solution.values['R_CO2tm']
 
     # # Sampler
-    # env['R_ATPM'] = res_fba[c]['atp'].pre_solution.fobj
-    #
     # sampling = sample(model, n_samples=200, n_steps=1000, verbose=1, constraints=env)
-    # sampling.to_csv('./data/%s_sampling.txt' % c, sep='\t', index=False)
+    # sampling.to_csv('./data/%s_sampling.csv' % c, index=False)
     # print '[INFO] Sampling finished: ', c
 
 
@@ -159,11 +161,12 @@ print '[INFO] Plot done'
 # -- Plotting fluxes
 fluxes = DataFrame({c: res_fba[c]['atp'].values for c in res_fba})
 fluxes['delta'] = fluxes['UOK262'].abs() - fluxes['UOK262pFH'].abs()
-# fluxes = fluxes[fluxes['delta'].abs() > 1e-5]
+fluxes = fluxes[fluxes['delta'].abs() > 1e-5]
 
 cmap = sns.diverging_palette(10, 220, sep=5, n=20, as_cmap=True)
 
-# Flux pathways heatmaps
+
+# Flux pathway heatmap
 plot_df = fluxes.ix[rpathways['glycolysis'] + rpathways['mitochondria']].dropna()
 
 pal = dict(zip(*(['glycolysis', 'mitochondria'], sns.color_palette('Set2', n_colors=6).as_hex())))
@@ -174,17 +177,16 @@ g = sns.clustermap(plot_df, linewidths=.5, mask=(plot_df == 0), cmap=cmap, row_c
 plt.gcf().set_size_inches(.5, 5)
 plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
 plt.savefig('./reports/flux_heatmap.pdf', bbox_inches='tight')
-plt.savefig('./reports/flux_heatmap.png', bbox_inches='tight', dpi=300)
 plt.close('all')
 print '[INFO] Plot exported'
 
 
 # Exchange reactions
-plot_df = fluxes.ix[{r for c in conditions for r in res_env[c] if res_fba[c]['atp'].values[r] != 0}].sort_values('UOK262')
+plot_df = fluxes.ix[{r for c in conditions for r in res_env[c] if res_fba[c]['atp'].values[r] != 0}].dropna().sort_values('UOK262')
 
 sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.clustermap(plot_df, linewidths=.5, mask=(plot_df == 0), cmap=cmap, row_cluster=False, col_cluster=False)
-plt.gcf().set_size_inches(.5, 6)
+plt.gcf().set_size_inches(.5, 4)
 plt.setp(g.ax_heatmap.xaxis.get_majorticklabels(), rotation=90)
 plt.savefig('./reports/flux_heatmap_exchange.pdf', bbox_inches='tight')
 plt.close('all')
@@ -193,20 +195,31 @@ print '[INFO] Plot exported'
 
 # Protein vs Flux
 r_genes = {r: {gmap.ix[g] for g in model.reactions[r].gpr.get_genes() if g in gmap.index} for r in model.reactions if model.reactions[r].gpr}
-pathways = {r: model.reactions[r].metadata['SUBSYSTEM'] for r in model.reactions if 'SUBSYSTEM' in model.reactions[r].metadata and model.reactions[r].metadata['SUBSYSTEM'] != ''}
+
+p_reactions = DataFrame([{'r': r, 'p': model.reactions[r].metadata['SUBSYSTEM']} for r in model.reactions if 'SUBSYSTEM' in model.reactions[r].metadata and model.reactions[r].metadata['SUBSYSTEM'] != ''])
+p_reactions = p_reactions.groupby('p')['r'].agg(lambda x: set(x)).to_dict()
 
 plot_df = DataFrame([
-    {'reaction': r, 'gene': g, 'pathway': pathways[r], 'flux': fluxes.ix[r, 'delta'], 'protein': proteomics[g]}
-    for r in fluxes.index if r in r_genes and r in pathways for g in r_genes[r] if g in proteomics
-])
-
+    {
+        'flux': fluxes.ix[p_reactions[p], 'delta'].median(),
+        'protein': proteomics[{g for r in p_reactions[p] if r in r_genes for g in r_genes[r]}].median(),
+        'pathway': p
+    } for p in p_reactions
+]).dropna().set_index('pathway')
 plot_df = plot_df[plot_df['flux'].abs() > 1e-5]
-plot_df = plot_df.groupby('pathway').mean().sort('protein')
+print plot_df.sort('flux')
 
 cor, pval = pearsonr(plot_df['flux'], plot_df['protein'])
 print cor, pval
 
-p_highlight = ['Oxidative phosphorylation', 'NAD metabolism', 'Citric acid cycle', 'Glutamate metabolism', 'Cysteine Metabolism', 'Glycine, serine, alanine and threonine metabolism']
+p_highlight = [
+    'Oxidative phosphorylation',
+    'NAD metabolism',
+    'Citric acid cycle',
+    'Glutamate metabolism',
+    'Cysteine Metabolism',
+    'Glycine, serine, alanine and threonine metabolism'
+]
 pal = dict(zip(*(p_highlight + ['Others'], sns.color_palette('Set2', n_colors=6).as_hex() + ['#D3D3D3'])))
 
 # Plot
