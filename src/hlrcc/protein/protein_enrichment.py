@@ -3,7 +3,7 @@
 
 import matplotlib.pyplot as plt
 from pymist.enrichment.gsea import gsea
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, read_csv
 from hlrcc.utils import read_gmt, get_complexes_dict, get_complexes_name
 
 
@@ -24,6 +24,7 @@ dataset = proteomics.to_dict()
 df_enrichment = [(t, sig, len(db[sig].intersection(dataset)), gsea(dataset, db[sig], 1000)) for t, db in signatures.items() for sig in db]
 df_enrichment = DataFrame([{'type': t, 'signature': s, 'length': l, 'escore': es, 'pvalue': pval} for t, s, l, (es, pval) in df_enrichment]).dropna()
 df_enrichment.sort(['escore']).to_csv('./files/proteomics_tmt_go_term.csv', index=False)
+# df_enrichment = read_csv('./files/proteomics_tmt_go_term.csv')
 print df_enrichment[df_enrichment['length'] > 5].sort(['escore'])
 
 # Protein complexes enrichment
@@ -33,4 +34,5 @@ df_enrichment_complexes = [(c, len(sig.intersection(dataset)), gsea(dataset, sig
 df_enrichment_complexes = DataFrame([{'complex': c, 'length': l, 'escore': es, 'pvalue': pval} for c, l, (es, pval) in df_enrichment_complexes]).dropna()
 df_enrichment_complexes['name'] = [corum_n[i] for i in df_enrichment_complexes['complex']]
 df_enrichment_complexes.sort(['escore']).to_csv('./files/proteomics_tmt_go_term_corum.csv', index=False)
+# df_enrichment_complexes = read_csv('./files/proteomics_tmt_go_term_corum.csv')
 print df_enrichment_complexes[df_enrichment_complexes['length'] > 4].sort(['escore'])

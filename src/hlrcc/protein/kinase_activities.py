@@ -12,27 +12,44 @@ from hlrcc.utils import get_ktargets, get_ktargets_omnipath
 
 # -- Import data-sets
 phospho_lf = Series.from_csv('./data/uok262_phosphoproteomics_labelfree_processed.csv')
+prot_lf = Series.from_csv('./data/uok262_proteomics_labelfree_processed.csv')
+
 phospho_tmt = Series.from_csv('./data/uok262_phosphoproteomics_tmt_preprocessed.csv')
+prot_tmt = Series.from_csv('./data/uok262_proteomics_tmt_preprocessed.csv')
+
+
+# -- Regress-out protein abundance
+df_lf = DataFrame({p: {'prot': prot_lf[p.split('_')[0]], 'phospho': phospho_lf[p]} for p in phospho_lf.index if p.split('_')[0] in prot_lf}).T
+lm_lf = sm.OLS(df_lf['phospho'], sm.add_constant(df_lf['prot'])).fit()
+phospho_lf_res = lm_lf.resid
+print lm_lf.summary()
+
+df_tmt = DataFrame({p: {'prot': prot_tmt[p.split('_')[0]], 'phospho': phospho_tmt[p]} for p in phospho_tmt.index if p.split('_')[0] in prot_tmt}).T
+lm_tmt = sm.OLS(df_tmt['phospho'], sm.add_constant(df_tmt['prot'])).fit()
+phospho_tmt_res = lm_tmt.resid
+print lm_tmt.summary()
 
 
 # -- Import kinase-substrate interaction network
-k_targets = get_ktargets_omnipath(ref=['PhosphoSite', 'phosphoELM', 'Signor', 'HPRD'])
+k_targets = get_ktargets_omnipath()
 
 
 # -- Calculate kinase enrichment
-# Kinase activity label-free
-k_targets_lf = {k: k_targets[k].intersection(phospho_lf.index) for k in k_targets}
-k_targets_lf = {k: k_targets_lf[k] for k in k_targets_lf if len(k_targets_lf[k]) > 1}
+min_targets = 1
 
-k_activity_lf = DataFrame({k: dict(zip(*(['zscore', 'pvalue'], ztest(phospho_lf.ix[k_targets_lf[k]], phospho_lf.drop(k_targets_lf[k]))))) for k in k_targets_lf}).T
-print k_activity_lf.sort_values('pvalue')
+# Kinase activity label-free
+k_targets_lf = {k: k_targets[k].intersection(phospho_lf_res.index) for k in k_targets}
+k_targets_lf = {k: k_targets_lf[k] for k in k_targets_lf if len(k_targets_lf[k]) >= min_targets}
+
+k_activity_lf = DataFrame({k: dict(zip(*(['zscore', 'pvalue'], ztest(phospho_lf_res.ix[k_targets_lf[k]], phospho_lf_res.drop(k_targets_lf[k]))))) for k in k_targets_lf}).T
+print k_activity_lf.sort_values('zscore')
 
 # Kinase activity TMT-MS
-k_targets_tmt = {k: k_targets[k].intersection(phospho_tmt.index) for k in k_targets}
-k_targets_tmt = {k: k_targets_tmt[k] for k in k_targets_tmt if len(k_targets_tmt[k]) > 1}
+k_targets_tmt = {k: k_targets[k].intersection(phospho_tmt_res.index) for k in k_targets}
+k_targets_tmt = {k: k_targets_tmt[k] for k in k_targets_tmt if len(k_targets_tmt[k]) >= min_targets}
 
-k_activity_tmt = DataFrame({k: dict(zip(*(['zscore', 'pvalue'], ztest(phospho_tmt.ix[k_targets_tmt[k]], phospho_tmt.drop(k_targets_tmt[k]))))) for k in k_targets_tmt}).T
-print k_activity_tmt.sort_values('pvalue')
+k_activity_tmt = DataFrame({k: dict(zip(*(['zscore', 'pvalue'], ztest(phospho_tmt_res.ix[k_targets_tmt[k]], phospho_tmt_res.drop(k_targets_tmt[k]))))) for k in k_targets_tmt}).T
+print k_activity_tmt.sort_values('zscore')
 
 
 # -- Plot kinases activities
