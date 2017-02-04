@@ -8,7 +8,7 @@ from scipy.linalg.lapack import dgesdd
 from scipy.linalg.blas import dgemm
 from warnings import warn
 from collections import OrderedDict
-from framed import FBA, solver_instance, looplessFBA
+from framed import FBA, FVA, solver_instance, looplessFBA
 from framed.solvers.solver import Status
 
 
@@ -28,7 +28,7 @@ def set_null_space(S, tol=1e-12):
 def get_warmup_points(model, constraints=None):
     # Calculate warm-up points running FVA
     solver = solver_instance(model)
-    fva = FVA(model, constraints=constraints, solver=solver)
+    fva = fva_with_values(model, constraints=constraints, solver=solver)
 
     # Get upper and lower bounds
     reactions, lb, ub = zip(*[(r, fva[r][0].fobj if fva[r][0] else -np.Inf, fva[r][1].fobj if fva[r][1] else np.Inf) for r in fva])
@@ -219,49 +219,41 @@ def sample(model, n_samples=1000, n_steps=50, n_steps_projection=25, constraints
     return DataFrame(samples[warmup_points.shape[1]:], columns=reactions)
 
 
-# def fix_futile_cycles(model, samples, verbose=1):
-#     """ Fixes the distribution values of the reactions in futile cycles, by fixing all the other reactions values
-#         and minimising the futile cycle reactions values.
-#
-#     Arguements:
-#         model: Model -- a metabolic constrain-based model
-#         samples: DataFrame -- pandas DataFrame returned by the sample function - rows samples, columns reactions
-#
-#     Returns:
-#         solution: DataFrame -- pandas DataFrame same structure as the samples argument
-#     """
-#     m = model.deepcopy()
-#
-#     # Set lower bound of all ireversible reactions to 0
-#     [m.set_constraint(k, lower_bound=0) for k, (lb, ub) in m.get_reactions_bounds().items() if lb > 0]
-#
-#     # Close exachnge reactions bounds: lower = upper = 0
-#     [m.set_constraint(r, lower_bound=0, upper_bound=0) for r in m.get_exchanges()]
-#
-#     # Run FVA
-#     fva = FVA(m)
-#
-#     # Identify reactions in futile cycles
-#     futile_cycle_reactions = dict((r, 1) for r, (lb, ub) in fva.items() if lb < 0 or ub > 0)
-#
-#     # Verbose
-#     if verbose > 0:
-#         print '[INFO] ' + str(len(futile_cycle_reactions)) + ' futile cycle reactions found: ', futile_cycle_reactions.keys()
-#
-#     # Fix reactions values and minimise futile cycle reactions
-#     if len(futile_cycle_reactions) > 0:
-#         for i in samples.index:
-#             [m.set_constraint(r, samples.loc[i, r], samples.loc[i, r]) for r in samples.columns if r not in futile_cycle_reactions]
-#
-#             fba = FBA(m, futile_cycle_reactions, maximize=False, opt_abs_values=True)
-#
-#             for futile_r in futile_cycle_reactions:
-#                 samples.ix[i, futile_r] = fba.values[futile_r]
-#
-#     return samples
+def fix_futile_cycles(model, samples):
+    # Initialise environmental conditionsz
+    env = {}
+
+    # Set lower bound of all ireversible reactions to 0
+    env.update({rid: (0, r.ub) for rid, r in model.reactions.items() if r.lb > 0})
+
+    # Close exachnge reactions bounds: lower = upper = 0
+    env.update({rid: (0, 0) for rid, r in model.reactions.items() if rid.startswith('R_EX_') or rid.startswith('R_sink_') or rid.startswith('R_DM_')})
+
+    # Run FVA
+    fva = FVA(model, constraints=env)
+
+    # Identify reactions in futile cycles
+    futile_cycle_reactions = {rid for rid, (lb, ub) in fva.items() if (lb is None) or (ub is None) or (lb < 0) or (ub > 0)}
+
+    # Verbose
+    print '[INFO] %d futile cycle reactions found: %s' % (len(futile_cycle_reactions), '; '.join(futile_cycle_reactions))
+
+    # Fix reactions values and minimise futile cycle reactions
+    if len(futile_cycle_reactions) > 0:
+        solver = solver_instance(model)
+
+        for i in samples.index:
+            env.update({rid: (samples.ix[i, rid], samples.ix[i, rid]) for rid in samples if rid not in futile_cycle_reactions})
+
+            fba = abs_min_fba(model, constraints=env, reactions=futile_cycle_reactions, solver=solver)
+
+            for rid in futile_cycle_reactions:
+                samples.ix[i, rid] = fba.values[rid]
+
+    return samples
 
 
-def FVA(model, obj_percentage=0, reactions=None, constraints=None, loopless=False, internal=None, solver=None):
+def fva_with_values(model, obj_percentage=0, reactions=None, constraints=None, loopless=False, internal=None, solver=None):
     """ Run Flux Variability Analysis (FVA).
 
     Arguments:
@@ -331,3 +323,47 @@ def FVA(model, obj_percentage=0, reactions=None, constraints=None, loopless=Fals
             warn('Unknown solution status')
 
     return variability
+
+
+def abs_min_fba(model, constraints=None, reactions=None, solver=None):
+    if not solver:
+        solver = solver_instance(model)
+
+    if not reactions:
+        reactions = model.reactions.keys()
+
+    if not hasattr(solver, 'pFBA_flag'):
+        solver.pFBA_flag = True
+        for r_id in reactions:
+            if model.reactions[r_id].reversible:
+                pos, neg = r_id + '+', r_id + '-'
+                solver.add_variable(pos, 0, None, persistent=False, update_problem=False)
+                solver.add_variable(neg, 0, None, persistent=False, update_problem=False)
+        solver.update()
+        for r_id in reactions:
+            if model.reactions[r_id].reversible:
+                pos, neg = r_id + '+', r_id + '-'
+                solver.add_constraint('c' + pos, {r_id: -1, pos: 1}, '>', 0, persistent=False, update_problem=False)
+                solver.add_constraint('c' + neg, {r_id: 1, neg: 1}, '>', 0, persistent=False, update_problem=False)
+        solver.update()
+
+    objective = dict()
+    for r_id in reactions:
+        if model.reactions[r_id].reversible:
+            pos, neg = r_id + '+', r_id + '-'
+            objective[pos] = 1
+            objective[neg] = 1
+        else:
+            objective[r_id] = 1
+
+    solution = solver.solve(objective, minimize=True, constraints=constraints)
+
+    # post process
+    if solution.status == Status.OPTIMAL:
+        for r_id in reactions:
+            if model.reactions[r_id].reversible:
+                pos, neg = r_id + '+', r_id + '-'
+                del solution.values[pos]
+                del solution.values[neg]
+
+    return solution
