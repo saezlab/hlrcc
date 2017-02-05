@@ -74,6 +74,7 @@ core *= 1000
 
 # Export
 core.to_csv('./data/core/Data_CoRe4_all_mmol_gDW_h.csv')
+# core = read_csv('./data/core/Data_CoRe4_all_mmol_gDW_h.csv', index_col=0)
 print core
 
 # ---- Statistical analysis
@@ -101,18 +102,22 @@ print core_ttest.sort('fdr')
 
 # -- Boxplots
 fdr_thres = .05
+conditions = ['KO', 'WT']
 
 plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('index', axis=1).set_index('condition').unstack().reset_index()
 plot_df.columns = ['metabolite', 'condition', 'rate']
+plot_df['condition'] = ['WT' if i == 'UOK262pFH' else 'KO' for i in plot_df['condition']]
+plot_df = plot_df.sort_values('rate', ascending=False)
+plot_df['metabolite'] = [i.capitalize() for i in plot_df['metabolite']]
 
-order = list(core_ttest[core_ttest['fdr'] < fdr_thres].sort('diff', ascending=False)['metabolite'])
+order = [i.capitalize() for i in core_ttest[core_ttest['fdr'] < fdr_thres].sort('diff', ascending=False)['metabolite']]
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.FacetGrid(plot_df, row='metabolite', row_order=order, size=1., aspect=1., legend_out=True, sharex=False)
-g.map(sns.violinplot, 'rate', 'condition', palette=sns.light_palette('#34495e', 3)[1:], split=False, cut=0)
-g.map(plt.axvline, x=0, ls='-', lw=.5, alpha=.7, color='gray')
+g = sns.FacetGrid(plot_df, col='metabolite', col_order=order, col_wrap=4, size=1., aspect=2.5, legend_out=True, sharex=False, sharey=False)
+g.map(sns.violinplot, 'rate', 'condition', orient='h', palette=sns.light_palette('#34495e', 3)[1:], split=False, cut=0, linewidth=1., order=conditions)
+g.map(plt.axvline, x=0, ls='-', lw=.3, alpha=.7, color='gray')
 g.despine(trim=True)
-g.set_titles('{row_name}')
+g.set_titles('{col_name}')
 g.set_ylabels('')
 g.set_xlabels('Flux rate (mmol/gDW/h)')
 plt.savefig('./reports/metabolomics_core_boxplot.pdf', bbox_inches='tight')
