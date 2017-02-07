@@ -75,10 +75,11 @@ for c in conditions:
     print 'Max ATP: ', res_fba[c]['atp'].pre_solution.fobj
 
     # Sampling
-    samples = sample(c_model, n_samples=1000, n_steps=2500, verbose=1)
-    samples = fix_futile_cycles(c_model, samples=samples)
-    samples.to_csv('./data/%s_sampling.csv' % c, index=False)
-    print '[INFO] Sampling finished: ', c
+    for i in range(0, 1):
+        samples = sample(c_model, n_samples=1000, n_steps=2500, verbose=1)
+        samples = fix_futile_cycles(c_model, samples=samples)
+        samples.to_csv('./data/%s_sampling_%d.csv' % (c, i), index=False)
+        print '[INFO] Sampling finished: ', c
 
 
 # -- Store fluxes
