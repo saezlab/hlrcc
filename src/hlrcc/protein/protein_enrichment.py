@@ -9,6 +9,7 @@ from hlrcc.utils import read_gmt, get_complexes_dict, get_complexes_name
 
 # Import proteomics
 proteomics = Series.from_csv('./data/uok262_proteomics_tmt_preprocessed.csv')
+rnaseq = Series.from_csv('./data/UOK262_rnaseq_preprocessed.csv')
 
 # Import GO terms
 signatures = {

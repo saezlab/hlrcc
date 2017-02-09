@@ -30,41 +30,81 @@ print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len
 # -- Imports
 conditions = ['UOK262', 'UOK262pFH']
 
-ko_sampling, wt_sampling = [read_csv('./data/%s_sampling.txt' % c, sep='\t') for c in ['UOK262', 'UOK262pFH']]
-fluxes = DataFrame(
-    {r: {
-        'UOK262': ko_sampling[r].median(),
-        'UOK262pFH': wt_sampling[r].median(),
-        'wilcoxon': wilcoxon(ko_sampling[r], wt_sampling[r])[1]
-    } for r in ko_sampling}
-).T
-fluxes['fdr'] = multipletests(fluxes['wilcoxon'], method='fdr_bh')[1]
-fluxes['delta'] = fluxes['UOK262'].abs() - fluxes['UOK262pFH'].abs()
-print fluxes.sort(['delta'])
+# ko_sampling, wt_sampling = [read_csv('./data/%s_sampling.txt' % c, sep='\t') for c in ['UOK262', 'UOK262pFH']]
+# fluxes = DataFrame(
+#     {r: {
+#         'UOK262': ko_sampling[r].median(),
+#         'UOK262pFH': wt_sampling[r].median(),
+#         'wilcoxon': wilcoxon(ko_sampling[r], wt_sampling[r])[1]
+#     } for r in ko_sampling}
+# ).T
+# fluxes['fdr'] = multipletests(fluxes['wilcoxon'], method='fdr_bh')[1]
+# fluxes['delta'] = fluxes['UOK262'].abs() - fluxes['UOK262pFH'].abs()
+# print fluxes.sort(['delta'])
+#
+#
+# # -- Sampling plot
+# reactions = ['R_FUMm', 'R_MDHm', 'R_LEUTA', 'R_PGK', 'R_VALTA', 'R_GAPD', 'R_ADK1', 'R_ITCOALm']
+#
+# ko_s = ko_sampling[reactions].unstack().reset_index()
+# ko_s.columns = ['Reaction', 'Index', 'Flux']
+# ko_s['Sample'] = 'KO'
+#
+# wt_s = wt_sampling[reactions].unstack().reset_index()
+# wt_s.columns = ['Reaction', 'Index', 'Flux']
+# wt_s['Sample'] = 'WT'
+#
+# plot_df = ko_s.append(wt_s)
+# pal = dict(zip(*(['KO', 'WT'], sns.light_palette('#34495e', 3).as_hex()[1:])))
+#
+# sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+# g = sns.FacetGrid(plot_df, col='Reaction', col_wrap=4, legend_out=True, sharey=False, aspect=1, size=1.2)
+# g.map(sns.boxplot, 'Sample', 'Flux', linewidth=.3, notch=True, fliersize=1, palette=pal, order=['KO', 'WT'])
+# g.map(plt.axhline, y=0, ls='-', lw=.3, alpha=.7, color='black')
+# g.set_titles('{col_name}')
+# g.set_ylabels('Flux rate (mmol/gDW/h)')
+# g.despine(trim=True)
+# plt.savefig('./reports/recon_sampling_plot.pdf', bbox_inches='tight')
+# plt.close('all')
+# print '[INFO] Plot done'
 
+fluxes = read_csv('./data/pfba_atp.csv', index_col=0)
 
-# -- Sampling plot
-reactions = ['R_FUMm', 'R_MDHm', 'R_LEUTA', 'R_PGK', 'R_VALTA', 'R_GAPD', 'R_ADK1', 'R_ITCOALm']
+# -- Plotting
+pal = dict(zip(*(['WT', 'KO'], sns.light_palette('#34495e', 3, reverse=True).as_hex()[:-1])))
 
-ko_s = ko_sampling[reactions].unstack().reset_index()
-ko_s.columns = ['Reaction', 'Index', 'Flux']
-ko_s['Sample'] = 'KO'
-
-wt_s = wt_sampling[reactions].unstack().reset_index()
-wt_s.columns = ['Reaction', 'Index', 'Flux']
-wt_s['Sample'] = 'WT'
-
-plot_df = ko_s.append(wt_s)
-pal = dict(zip(*(['KO', 'WT'], sns.light_palette('#34495e', 3).as_hex()[1:])))
+# ATP and biomass yield
+plot_df = DataFrame([
+    {
+        'condition': 'WT',
+        'atp': abs(fluxes.ix['R_ATPM', 'UOK262pFH'] / fluxes.ix['R_EX_glc_e', 'UOK262pFH']),
+        'biomass': abs(fluxes.ix['R_biomass_reaction', 'UOK262pFH'] / fluxes.ix['R_EX_glc_e', 'UOK262pFH'])
+    },
+    {
+        'condition': 'KO',
+        'atp': abs(fluxes.ix['R_ATPM', 'UOK262'] / fluxes.ix['R_EX_glc_e', 'UOK262']),
+        'biomass': abs(fluxes.ix['R_biomass_reaction', 'UOK262'] / fluxes.ix['R_EX_glc_e', 'UOK262'])
+    }
+])
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.FacetGrid(plot_df, col='Reaction', col_wrap=4, legend_out=True, sharey=False, aspect=1, size=1.2)
-g.map(sns.boxplot, 'Sample', 'Flux', linewidth=.3, notch=True, fliersize=1, palette=pal, order=['KO', 'WT'])
-g.map(plt.axhline, y=0, ls='-', lw=.3, alpha=.7, color='black')
-g.set_titles('{col_name}')
-g.set_ylabels('Flux rate (mmol/gDW/h)')
-g.despine(trim=True)
-plt.savefig('./reports/recon_sampling_plot.pdf', bbox_inches='tight')
+sns.factorplot('condition', 'atp', data=plot_df, palette=pal, kind='bar', lw=0)
+plt.axhline(4, ls='--', lw=.3, c='gray')
+plt.axhline(32, ls='--', lw=.3, c='gray')
+plt.gcf().set_size_inches(1, 2)
+# plt.yticks(range(0, 36, 4))
+plt.ylabel('ATP yield (per mol Glucose)')
+plt.xlabel('')
+plt.savefig('./reports/atp_yield_bar.pdf', bbox_inches='tight')
+plt.close('all')
+print '[INFO] Plot done'
+
+sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.factorplot('condition', 'biomass', data=plot_df, palette=pal, kind='bar', lw=0)
+plt.gcf().set_size_inches(1, 2)
+plt.ylabel('Biomass yield (per mol Glucose)')
+plt.xlabel('')
+plt.savefig('./reports/biomass_yield_bar.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 
