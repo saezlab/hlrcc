@@ -45,18 +45,20 @@ plt.close('all')
 print '[INFO] Plot done'
 
 
+# -- Export list of convergent reactions
 diff = (sampling_1.ix[reactions]['delta'] - sampling_2.ix[reactions]['delta']).sort_values()
-list(diff[diff.abs() < 1e-2].index)
+diff.to_csv('./data/reactions_convergence.csv')
 print diff
 
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-plt.hist(ko_sampling_1['R_MMSAD3m'], color='r', label='UOK262', bins=30, alpha=.2)
-plt.hist(wt_sampling_1['R_MMSAD3m'], color='g', label='UOK262pFH', bins=30, alpha=.2)
-sns.despine()
-plt.legend()
-plt.xlabel('flux (mmol/gDW/h)')
-plt.title('ALDH6A1 (reaction MMSAD3m)')
-plt.gcf().set_size_inches(3, 2)
-plt.savefig('./reports/sampling_distributions.pdf', bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
+
+# sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+# plt.hist(ko_sampling_1['R_MMSAD3m'], color='r', label='UOK262', bins=30, alpha=.2)
+# plt.hist(wt_sampling_1['R_MMSAD3m'], color='g', label='UOK262pFH', bins=30, alpha=.2)
+# sns.despine()
+# plt.legend()
+# plt.xlabel('flux (mmol/gDW/h)')
+# plt.title('ALDH6A1 (reaction MMSAD3m)')
+# plt.gcf().set_size_inches(3, 2)
+# plt.savefig('./reports/sampling_distributions.pdf', bbox_inches='tight')
+# plt.close('all')
+# print '[INFO] Plot done'

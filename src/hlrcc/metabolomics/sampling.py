@@ -74,14 +74,14 @@ for c in conditions:
     res_fba[c]['atp'] = pFBA(c_model, objective={'R_ATPM': 1})
     print 'Max ATP: ', res_fba[c]['atp'].pre_solution.fobj
 
-    # # Sampling
-    # for sample_rep in range(1, 6):
-    #     samples = sample(c_model, n_samples=500, n_steps=1000, verbose=1)
-    #     samples.to_csv('./data/%s_sampling_%d.csv' % (c, sample_rep), index=False)
-    #
-    #     samples = fix_futile_cycles(c_model, samples=samples)
-    #     samples.to_csv('./data/%s_sampling_processed_%d.csv' % (c, sample_rep), index=False)
-    #     print '[INFO] Sampling finished: ', c
+    # Sampling
+    for sample_rep in range(1, 3):
+        samples = sample(c_model, n_samples=1000, n_steps=2500, verbose=1)
+        samples.to_csv('./data/%s_sampling_%d.csv' % (c, sample_rep), index=False)
+
+        samples = fix_futile_cycles(c_model, samples=samples)
+        samples.to_csv('./data/%s_sampling_processed_%d.csv' % (c, sample_rep), index=False)
+        print '[INFO] Sampling finished: ', c
 
 # -- Store fluxes
 fluxes = DataFrame({c: res_fba[c]['atp'].values for c in res_fba})
