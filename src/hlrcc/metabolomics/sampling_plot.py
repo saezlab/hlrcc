@@ -28,12 +28,8 @@ print 'Metabolites: %d, Reactions: %d, Genes: %d' % (len(model.metabolites), len
 
 
 # -- Imports
-conditions = ['KO', 'WT']
-conditions_map = {'UOK262': 'KO', 'UOK262pFH': 'WT'}
-
 fluxes = read_csv('./data/pfba_atp.csv', index_col=0).replace(np.nan, 0)
 fluxes['delta'] = fluxes['UOK262'] - fluxes['UOK262pFH']
-fluxes.columns = [conditions_map[c] if c in conditions_map else c for c in fluxes]
 
 # ko_sampling, wt_sampling = [read_csv('./data/%s_sampling.txt' % c, sep='\t') for c in ['UOK262', 'UOK262pFH']]
 # fluxes = DataFrame(
@@ -74,21 +70,21 @@ fluxes.columns = [conditions_map[c] if c in conditions_map else c for c in fluxe
 # print '[INFO] Plot done'
 
 # -- Plotting
-pal = dict(zip(*(conditions, sns.light_palette('#34495e', 3, reverse=True).as_hex()[:-1])))
+pal = dict(zip(*(['UOK262', 'UOK262pFH'], sns.light_palette('#34495e', 3, reverse=True).as_hex()[:-1])))
 
 # ATP and biomass yield
 plot_df = DataFrame([
     {
-        'condition': 'WT',
-        'atp': abs(fluxes.ix['R_ATPM', 'WT'] / fluxes.ix['R_EX_glc_e', 'WT']),
-        'atp_total': fluxes.ix['R_ATPM', 'WT'],
-        'biomass': abs(fluxes.ix['R_biomass_reaction', 'WT'] / fluxes.ix['R_EX_glc_e', 'WT'])
+        'condition': 'UOK262pFH',
+        'atp': abs(fluxes.ix['R_ATPM', 'UOK262pFH'] / fluxes.ix['R_EX_glc_e', 'UOK262pFH']),
+        'atp_total': fluxes.ix['R_ATPM', 'UOK262pFH'],
+        'biomass': abs(fluxes.ix['R_biomass_reaction', 'UOK262pFH'] / fluxes.ix['R_EX_glc_e', 'UOK262pFH'])
     },
     {
-        'condition': 'KO',
-        'atp': abs(fluxes.ix['R_ATPM', 'KO'] / fluxes.ix['R_EX_glc_e', 'KO']),
-        'atp_total': fluxes.ix['R_ATPM', 'KO'],
-        'biomass': abs(fluxes.ix['R_biomass_reaction', 'KO'] / fluxes.ix['R_EX_glc_e', 'KO'])
+        'condition': 'UOK262',
+        'atp': abs(fluxes.ix['R_ATPM', 'UOK262'] / fluxes.ix['R_EX_glc_e', 'UOK262']),
+        'atp_total': fluxes.ix['R_ATPM', 'UOK262'],
+        'biomass': abs(fluxes.ix['R_biomass_reaction', 'UOK262'] / fluxes.ix['R_EX_glc_e', 'UOK262'])
     }
 ])
 
@@ -98,7 +94,7 @@ sns.factorplot('condition', 'atp_total', data=plot_df, palette=pal, kind='bar', 
 # plt.axhline(32, ls='--', lw=.3, c='gray')
 plt.gcf().set_size_inches(1, 2)
 # plt.yticks(range(0, 36, 4))
-plt.ylabel('Total ATPM production')
+plt.ylabel('ATP production')
 plt.xlabel('')
 plt.savefig('./reports/atp_yield_bar.pdf', bbox_inches='tight')
 plt.close('all')
@@ -123,6 +119,8 @@ plot_df = plot_df[plot_df['delta'].abs() > 1e-5]
 
 pal = dict(zip(*(['glycolysis', 'mitochondria'], sns.color_palette('Set2', n_colors=6).as_hex())))
 rcol = Series({i: pal[p] for i in plot_df.index for p in rpathways if i in rpathways[p]}, name='')
+
+plot_df.index = [i[2:] for i in plot_df.index]
 
 sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 g = sns.heatmap(plot_df, linewidths=.5, mask=(plot_df == 0), cmap=cmap, square=True)

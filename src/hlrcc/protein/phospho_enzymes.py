@@ -23,6 +23,12 @@ fluxes = read_csv('./data/pfba_atp.csv', index_col=0).replace(np.nan, 0)
 fluxes['delta'] = fluxes['UOK262'] - fluxes['UOK262pFH']
 fluxes.columns = [conditions_map[c] if c in conditions_map else c for c in fluxes]
 
+# Regulatory p-sites
+r_sites = read_csv('./files/Regulatory_sites.txt', sep='\t')
+r_sites = r_sites[r_sites['ORGANISM'] == 'human']
+r_sites = r_sites[[i.endswith('-p') for i in r_sites['MOD_RSD']]]
+r_sites['res'] = ['%s_%s' % (g, p.split('-')[0]) for g, p in r_sites[['GENE', 'MOD_RSD']].values]
+
 
 # -- Import metabolic model
 gmap = read_csv('./files/non_alt_loci_set.txt', sep='\t')
@@ -52,8 +58,8 @@ sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3
 g = sns.jointplot(
     'proteomics', 'phosphoproteomics', plot_df, 'reg', color='#34495e', space=0,
     joint_kws={'scatter_kws': {'s': 40, 'edgecolor': 'w', 'linewidth': .5, 'alpha': .5}, 'fit_reg': False},
-    marginal_kws={'hist': False, 'rug': False},
-    annot_kws={'template': 'Pearson: {val:.2g}, p-value: {p:.1e}', 'loc': 4}
+    marginal_kws={'hist': False, 'rug': False}, stat_func=spearmanr,
+    annot_kws={'template': 'Spearman: {val:.2g}, p-value: {p:.1e}', 'loc': 4}
 )
 plt.axhline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
 plt.axvline(0, ls='-', lw=0.3, c='#95a5a6', alpha=.5)
@@ -97,12 +103,21 @@ plot_df = DataFrame([{
     'Psite': p,
     'Enzyme': p.split('_')[0],
     'Reaction': r,
-    'Phosphoproteomics': phosphoproteomics[p],
-    'Fluxomics': fluxes.ix[r, 'delta']
- } for p in residuals.index for r in g_to_r[p.split('_')[0]] if r in fluxes.index]).sort_values('Fluxomics')
+    'phospho (logfc)': phosphoproteomics[p],
+    'flux (delta)': fluxes.ix[r, 'delta']
+ } for p in residuals.index for r in g_to_r[p.split('_')[0]] if r in fluxes.index]).sort_values('flux (delta)')
 plot_df = plot_df[plot_df['Reaction'] != 'R_ATPS4m']
-plot_df = plot_df[plot_df['Fluxomics'].abs() > 1e-1]
-print plot_df
+plot_df = plot_df[plot_df['flux (delta)'].abs() > 1e-1]
+plot_df['flux (KO)'] = [fluxes.ix[i, 'KO'] for i in plot_df['Reaction']]
+plot_df['flux (WT)'] = [fluxes.ix[i, 'WT'] for i in plot_df['Reaction']]
+plot_df.to_csv('./data/fluxes_phospho_table.csv', index=False)
+print plot_df.sort_values('flux (delta)')
+
+plot_df[[i in set(r_sites['res']) for i in plot_df['Psite']]]
+r_sites.loc[[i in set(plot_df['Psite']) for i in r_sites['res']], ['res', 'NOTES']]
+
+print r_sites.ix[1492]
+print r_sites.ix[1492, 'NOTES']
 
 order = list(unique_everseen(plot_df['Enzyme']))
 pal = dict(zip(*(order, sns.diverging_palette(10, 220, sep=5, n=len(order)+1).as_hex()[:-1])))
@@ -110,7 +125,7 @@ pal = dict(zip(*(order, sns.diverging_palette(10, 220, sep=5, n=len(order)+1).as
 
 sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
 sns.lmplot(
-    'Fluxomics', 'Phosphoproteomics', plot_df, 'Enzyme', fit_reg=False, palette=pal, size=3,
+    'flux (delta)', 'phospho (logfc)', plot_df, 'Enzyme', fit_reg=False, palette=pal, size=3,
     scatter_kws={'s': 50, 'edgecolor': 'w', 'linewidth': .5}, legend_out=False, legend=False
 )
 plt.axhline(0, ls='-', lw=.3, c='gray')

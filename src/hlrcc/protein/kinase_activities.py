@@ -17,6 +17,9 @@ prot_lf = Series.from_csv('./data/uok262_proteomics_labelfree_processed.csv')
 phospho_tmt = Series.from_csv('./data/uok262_phosphoproteomics_tmt_preprocessed.csv')
 prot_tmt = Series.from_csv('./data/uok262_proteomics_tmt_preprocessed.csv')
 
+protein = 'SLC9A1'
+print phospho_lf[[i for i in phospho_lf.index if i.startswith(protein)]]
+print phospho_tmt[[i for i in phospho_tmt.index if i.startswith(protein)]]
 
 # -- Regress-out protein abundance
 df_lf = DataFrame({p: {'prot': prot_lf[p.split('_')[0]], 'phospho': phospho_lf[p]} for p in phospho_lf.index if p.split('_')[0] in prot_lf}).T
@@ -31,8 +34,7 @@ print lm_tmt.summary()
 
 
 # -- Import kinase-substrate interaction network
-k_targets = get_ktargets_omnipath()
-
+k_targets = get_ktargets_omnipath(ref=['dbPTM', 'PhosphoSite', 'DEPOD', 'phosphoELM', 'Signor', 'HPRD'])
 
 # -- Calculate kinase enrichment
 min_targets = 1
@@ -49,6 +51,7 @@ k_targets_tmt = {k: k_targets[k].intersection(phospho_tmt_res.index) for k in k_
 k_targets_tmt = {k: k_targets_tmt[k] for k in k_targets_tmt if len(k_targets_tmt[k]) >= min_targets}
 
 k_activity_tmt = DataFrame({k: dict(zip(*(['zscore', 'pvalue'], ztest(phospho_tmt_res.ix[k_targets_tmt[k]], phospho_tmt_res.drop(k_targets_tmt[k]))))) for k in k_targets_tmt}).T
+k_activity_tmt.sort_values('zscore').to_csv('./data/kinases_activity_tmt_protein_normalised.csv')
 print k_activity_tmt.sort_values('zscore')
 
 

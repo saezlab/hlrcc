@@ -4,14 +4,9 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from framed import load_cbmodel
-from protein_attenuation.utils import gkn
-from scipy.stats.stats import pearsonr
-from pymist.enrichment.gsea import gsea, plot_gsea
-from sklearn.metrics.ranking import roc_curve, auc
-from pandas import read_csv, Series, DataFrame
+from scipy.stats.stats import pearsonr, spearmanr
+from pandas import read_csv, DataFrame
 from statsmodels.stats.multitest import multipletests
-from sklearn.metrics.classification import precision_score, recall_score
 
 
 # -- Enrichment go terms
