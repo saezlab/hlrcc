@@ -8,3 +8,6 @@ gurobi.log
 figures/*
 uniprot_sprot.fasta
 figures/*
+*.xlsx
+HUMAN_9606_idmapping.txt
+.Rhistory
