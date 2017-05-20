@@ -4,14 +4,14 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy.stats.stats import pearsonr, spearmanr
+from scipy.stats.stats import pearsonr
 from pandas import read_csv, DataFrame
 from statsmodels.stats.multitest import multipletests
 
 
 # -- Enrichment go terms
-e_goterms = df_enrichment = read_csv('./files/proteomics_tmt_go_term.csv')
-e_goterms = e_goterms[e_goterms['length'] >= 5]
+e_goterms = read_csv('./files/proteomics_tmt_go_term.csv')
+e_goterms = e_goterms[e_goterms['length'] >= 3]
 e_goterms['fdr'] = multipletests(e_goterms['pvalue'], method='fdr_bh')[1]
 e_goterms['abs_score'] = e_goterms['escore'].abs()
 print e_goterms.sort('fdr')
@@ -24,7 +24,7 @@ print plot_df
 
 pal = dict(zip(*(set(plot_df['type']), sns.color_palette('Set1', n_colors=3).as_hex())))
 
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.set(style='ticks', context='paper', font_scale=0.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3, 'xtick.major.size': 2.5, 'ytick.major.size': 2.5, 'xtick.direction': 'in', 'ytick.direction': 'in'})
 sns.stripplot(y='name', x='escore', hue='type', data=plot_df, palette=pal, s=4)
 plt.axvline(0, ls='-', lw=0.3, c='black', alpha=.5)
 plt.xlabel('Enrichment score\n(GSEA)')
@@ -32,37 +32,8 @@ plt.ylabel('')
 plt.legend(loc=0, title='Type')
 plt.xticks(np.arange(-1, 1.5, .5))
 plt.gcf().set_size_inches(1, 3)
-sns.despine(trim=True)
 plt.title('GO terms')
 plt.savefig('./reports/protein_enrichment_goterms.pdf', bbox_inches='tight')
-plt.close('all')
-print '[INFO] Plot done'
-
-
-# -- Enrichment complexes
-e_corum = read_csv('./files/proteomics_tmt_go_term_corum.csv')
-e_corum = e_corum[e_corum['length'] >= 5]
-e_corum['fdr'] = multipletests(e_corum['pvalue'], method='fdr_bh')[1]
-e_corum['abs_score'] = e_corum['escore'].abs()
-print e_corum.sort('fdr')
-
-# Plot
-plot_df = e_corum[e_corum['fdr'] < .05].sort_values('abs_score', ascending=False).head(20)
-plot_df = plot_df.sort_values('escore')
-plot_df['name'] = ['Respiratory chain complex I, mitochondrial' if i == 'Respiratory chain complex I (early intermediate NDUFAF1 assembly), mitochondrial' else i for i in plot_df['name']]
-print plot_df
-
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-sns.stripplot(y='name', x='escore', data=plot_df, color='#bfbfbf', s=4)
-plt.axvline(0, ls='-', lw=0.3, c='black', alpha=.5)
-plt.xlabel('Enrichment score\n(GSEA)')
-plt.ylabel('')
-plt.legend(loc=0, title='Type')
-plt.xticks(np.arange(-1, 1.5, .5))
-plt.gcf().set_size_inches(1, 1.5)
-sns.despine(trim=True)
-plt.title('Protein complexes')
-plt.savefig('./reports/protein_enrichment_corum.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'
 
@@ -116,7 +87,7 @@ p_highlight = [
 pal = dict(zip(*(p_highlight + ['Others'], sns.color_palette('Set2', n_colors=8).as_hex() + ['#dfdfdf'])))
 
 # Plot
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+sns.set(style='ticks', context='paper', font_scale=0.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3, 'xtick.major.size': 2.5, 'ytick.major.size': 2.5, 'xtick.direction': 'in', 'ytick.direction': 'in'})
 # sns.regplot('flux', 'protein', plot_df, fit_reg=False, color='#34495e', line_kws={'lw': .3})
 for p in plot_df.index:
     if p in p_highlight:
@@ -132,6 +103,6 @@ plt.ylabel('Protein enrichment score (inverse)')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 # plt.title('Pearson r: %.2f, p-value: %.2e' % (cor, pval))
 plt.gcf().set_size_inches(2, 2)
-plt.savefig('./reports/protein_flux_scatter.pdf', bbox_inches='tight')
+plt.savefig('./reports/protein_flux_scatter.png', bbox_inches='tight', dpi=600)
 plt.close('all')
 print '[INFO] Plot done'

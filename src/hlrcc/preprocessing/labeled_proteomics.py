@@ -4,8 +4,12 @@
 import re
 import pickle
 import numpy as np
-from pandas import read_csv
+import seaborn as sns
+import matplotlib.pyplot as plt
 from hlrcc.utils import read_fasta
+from scipy.stats.stats import ttest_1samp
+from pandas import DataFrame, read_csv, concat
+from statsmodels.stats.multitest import multipletests
 
 
 def map_sites(acc, pep, ptms):
@@ -22,8 +26,7 @@ human_uniprot = read_fasta()
 
 
 # -- ID maps
-with open('./files/uniprot_to_genename.pickle', 'rb') as handle:
-    gmap = pickle.load(handle)
+umap = pickle.load(open('./files/uniprot_to_genename.pickle', 'rb'))
 
 
 # -- Process TMT proteomics
@@ -33,15 +36,21 @@ proteomics = read_csv('./data/uok262_proteomics_tmt.csv', index_col=0)[['128_C/1
 proteomics = np.log2(proteomics)
 
 # Map gene name
-proteomics = proteomics[[i in gmap for i in proteomics.index]]
-proteomics = proteomics[[len(gmap[i]) == 1 for i in proteomics.index]]
-proteomics['gene'] = [gmap[i][0] for i in proteomics.index]
+proteomics = proteomics[[i in umap for i in proteomics.index]]
+proteomics['gene'] = [umap[i] for i in proteomics.index]
 
 # Average peptides matching to same protein
-proteomics = proteomics.groupby('gene').mean()
+proteomics = proteomics.groupby('gene').median()
 
-# Average replicates
-proteomics = proteomics.mean(1)
+# Differential protein abundance
+de_proteomics = {}
+for g in proteomics.index:
+    t, p = ttest_1samp(proteomics.ix[g], 0)
+    de_proteomics[g] = {'fc': proteomics.ix[g].mean(), 't': t, 'pval': p}
+de_proteomics = concat([proteomics, DataFrame(de_proteomics).T], axis=1)
+
+# FDR correction
+de_proteomics['fdr'] = multipletests(de_proteomics['pval'], method='fdr_bh')[1]
 
 # Export
 proteomics.to_csv('./data/uok262_proteomics_tmt_preprocessed.csv')
@@ -62,9 +71,8 @@ phosphoproteomics['sites'] = [map_sites(acc, pep, ptms.split('; ')) for pep, acc
 phosphoproteomics = phosphoproteomics[[len(s) != 0 for s in phosphoproteomics['sites']]]
 
 # Uniprot to gene symbol
-phosphoproteomics = phosphoproteomics[[i in gmap for i in phosphoproteomics['Protein Group Accessions']]]
-phosphoproteomics = phosphoproteomics[[len(gmap[i]) == 1 for i in phosphoproteomics['Protein Group Accessions']]]
-phosphoproteomics['gene'] = [gmap[i][0] for i in phosphoproteomics['Protein Group Accessions']]
+phosphoproteomics = phosphoproteomics[[i in umap for i in phosphoproteomics['Protein Group Accessions']]]
+phosphoproteomics['gene'] = [umap[i] for i in phosphoproteomics['Protein Group Accessions']]
 
 # Create psite id
 phosphoproteomics['sites'] = [acc + '_' + '_'.join(sites) for acc, sites in phosphoproteomics[['gene', 'sites']].values]
@@ -73,11 +81,18 @@ phosphoproteomics['sites'] = [acc + '_' + '_'.join(sites) for acc, sites in phos
 phosphoproteomics.ix[:, ['128_C/127_N', '128_N/126', '129_N/127_C']] = np.log2(phosphoproteomics[['128_C/127_N', '128_N/126', '129_N/127_C']])
 
 # Average p-sites within sample
-phosphoproteomics = phosphoproteomics.groupby('sites')['128_C/127_N', '128_N/126', '129_N/127_C'].mean().dropna()
+phosphoproteomics = phosphoproteomics.groupby('sites')['128_C/127_N', '128_N/126', '129_N/127_C'].median().dropna()
 
-# Average replicates
-phosphoproteomics = phosphoproteomics.mean(1)
+# Differential phosphorylation
+de_phosphoproteomics = {}
+for g in phosphoproteomics.index:
+    t, p = ttest_1samp(phosphoproteomics.ix[g], 0)
+    de_phosphoproteomics[g] = {'fc': phosphoproteomics.ix[g].mean(), 't': t, 'pval': p}
+de_phosphoproteomics = concat([phosphoproteomics, DataFrame(de_phosphoproteomics).T], axis=1)
+
+# FDR correction
+de_phosphoproteomics['fdr'] = multipletests(de_phosphoproteomics['pval'], method='fdr_bh')[1]
 
 # Export
-phosphoproteomics.to_csv('./data/uok262_phosphoproteomics_tmt_preprocessed.csv')
+de_phosphoproteomics.to_csv('./data/uok262_phosphoproteomics_tmt_preprocessed.csv')
 print '[INFO] TMT phosphoproteomics exported'

@@ -110,11 +110,13 @@ plot_df['metabolite'] = [i.capitalize() for i in plot_df['metabolite']]
 
 order = [i.capitalize() for i in core_ttest[core_ttest['fdr'] < fdr_thres].sort('diff', ascending=False)['metabolite']]
 
-sns.set(style='ticks', context='paper', font_scale=.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
+cpal = {'UOK262': u'#34495e', 'UOK262pFH': u'#919daa'}
+
+sns.set(style='ticks', context='paper', font_scale=0.75, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3, 'xtick.major.size': 2.5, 'ytick.major.size': 2.5, 'xtick.direction': 'in', 'ytick.direction': 'in'})
 g = sns.FacetGrid(plot_df, col='metabolite', col_order=order, col_wrap=7, size=1.85, aspect=.5, legend_out=True, sharex=False, sharey=False)
-g.map(sns.boxplot, 'condition', 'rate', orient='v', palette=sns.light_palette('#34495e', 3)[1:], linewidth=.3, order=['UOK262', 'UOK262pFH'], fliersize=2)
+g.map(sns.boxplot, 'condition', 'rate', orient='v', palette=cpal, linewidth=.3, order=['UOK262', 'UOK262pFH'], fliersize=2)
 g.map(plt.axhline, y=0, ls='-', lw=.3, alpha=.7, color='gray')
-g.despine(trim=True, bottom=True)
+g.despine(right=False, top=False)
 g.set_titles('{col_name}')
 g.set_xlabels('')
 g.set_ylabels('Flux rate (mmol/gDW/h)')
@@ -125,20 +127,27 @@ plt.close('all')
 print '[INFO] Plot done'
 
 # -- Corr heatmap
-plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('condition', axis=1).set_index('index').copy()
-plot_df = plot_df.T.corr(method='spearman')
+plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('condition', axis=1).set_index('index').copy().T.corr(method='spearman')
 
-rep_cmap = dict(zip(*(['180716', '220716', '280716'], sns.light_palette('#e74c3c', 4).as_hex()[1:])))
-cod_cmap = dict(zip(*(['UOK262', 'UOK262pFH'], sns.light_palette('#3498db', 3).as_hex()[1:])))
+rep_cmap = dict(zip(*(['180716', '220716', '280716'], sns.light_palette('#3498db', 4).as_hex()[1:])))
+cod_cmap = {'UOK262': u'#34495e', 'UOK262pFH': u'#919daa'}
 cod_map = {'262': 'UOK262', 'pFH': 'UOK262pFH'}
 
-row_color = DataFrame({'Replicate': {i: rep_cmap[i.split('_')[0]] for i in plot_df.index}, 'Condition': {i: cod_cmap[cod_map[i.split('_')[1]]] for i in plot_df.index}})
-col_color = DataFrame({'Replicate': {i: rep_cmap[i.split('_')[0]] for i in plot_df}, 'Condition': {i: cod_cmap[cod_map[i.split('_')[1]]] for i in plot_df}})
+row_color = DataFrame({
+    'Replicate': {i: rep_cmap[i.split('_')[0]] for i in plot_df.index},
+    'Condition': {i: cod_cmap[cod_map[i.split('_')[1]]] for i in plot_df.index}
+})
+col_color = DataFrame({
+    'Replicate': {i: rep_cmap[i.split('_')[0]] for i in plot_df},
+    'Condition': {i: cod_cmap[cod_map[i.split('_')[1]]] for i in plot_df}
+})
 
-cmap = sns.light_palette('#34495e', 10, as_cmap=True)
+cmap = sns.light_palette('#e65245', as_cmap=True)
 sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-sns.clustermap(plot_df, cmap=cmap, lw=.3, row_colors=row_color, col_colors=col_color, figsize=(5, 5))
-plt.savefig('./reports/metabolomics_core_clutermap.pdf', bbox_inches='tight')
+g = sns.clustermap(plot_df, cmap=cmap, lw=.3, row_colors=row_color, col_colors=col_color, figsize=(5, 5))
+plt.setp(g.ax_heatmap.get_yticklabels(), rotation=0)
+plt.setp(g.ax_heatmap.get_xticklabels(), rotation=90)
+plt.savefig('./reports/clustermap_metabolomics.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Heatmap plotted!'
 
@@ -153,7 +162,10 @@ col_color = DataFrame({'Replicate': {i: rep_cmap[i.split('_')[0]] for i in plot_
 
 cmap = sns.light_palette('#34495e', 10, as_cmap=True)
 sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-sns.clustermap(plot_df, cmap=cmap, lw=.3, col_colors=col_color, figsize=(5, 5), z_score=0)
+g = sns.clustermap(plot_df, cmap=cmap, lw=.3, col_colors=col_color, figsize=(5, 5), z_score=0)
+plt.setp(g.ax_heatmap.get_yticklabels(), rotation=0)
+plt.setp(g.ax_heatmap.get_xticklabels(), rotation=90)
+plt.gcf().set_size_inches(5, 3)
 plt.savefig('./reports/metabolomics_core_heatmap.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Heatmap plotted!'
