@@ -63,8 +63,8 @@ print e_f_path.sort('escore')
 # Plot
 plot_df = DataFrame([
     {
-        'flux': e_f_path.ix[p, 'escore'] * -1,
-        'protein': e_p_path.ix[p, 'escore'] * -1,
+        'flux': e_f_path.ix[p, 'escore'],
+        'protein': e_p_path.ix[p, 'escore'],
         'pathway': p
     } for p in ov_path
 ]).dropna().set_index('pathway')
@@ -75,14 +75,13 @@ cor, pval = pearsonr(plot_df['flux'], plot_df['protein'])
 print cor, pval
 
 p_highlight = [
-    'Fatty acid synthesis',
-    'NAD metabolism',
     'Citric acid cycle',
     'Glutamate metabolism',
-    'Cysteine Metabolism',
     'Pyruvate metabolism',
-    'Glycolysis/gluconeogenesis',
-    'Propanoate metabolism'
+    'Glycine, serine, alanine and threonine metabolism',
+    'Pentose phosphate pathway',
+    'beta-Alanine metabolism',
+    'Glutathione metabolism'
 ]
 pal = dict(zip(*(p_highlight + ['Others'], sns.color_palette('Set2', n_colors=8).as_hex() + ['#dfdfdf'])))
 
@@ -95,14 +94,13 @@ for p in plot_df.index:
     else:
         sns.regplot('flux', 'protein', plot_df.ix[[p]], fit_reg=False, color=pal['Others'], scatter_kws={'s': 10, 'lw': .0, 'edgecolors': 'none'})
 
-sns.despine()
 plt.axhline(0, ls='-', lw=.3, c='gray')
 plt.axvline(0, ls='-', lw=.3, c='gray')
-plt.xlabel('Flux enrichment score (inverse)')
-plt.ylabel('Protein enrichment score (inverse)')
+plt.xlabel('Flux enrichment score')
+plt.ylabel('Protein enrichment score')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-# plt.title('Pearson r: %.2f, p-value: %.2e' % (cor, pval))
+plt.title('Pearson r: %.2f, p-value: %.2e' % (cor, pval))
 plt.gcf().set_size_inches(2, 2)
-plt.savefig('./reports/protein_flux_scatter.png', bbox_inches='tight', dpi=600)
+plt.savefig('./reports/protein_flux_scatter.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot done'

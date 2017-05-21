@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from framed import load_cbmodel
 from scipy.stats.stats import spearmanr
 from more_itertools import unique_everseen
+from scipy.stats.distributions import hypergeom
 from pandas import read_csv, Series, DataFrame
 
 # -- Imports
@@ -97,22 +98,24 @@ plot_df = DataFrame([{
     'phospho (logfc)': phosphoproteomics.loc[p, 'fc'],
     'flux (delta)': fluxes.ix[r, 'delta']
  } for p in psites for r in g_to_r[p.split('_')[0]] if r in fluxes.index]).sort_values('flux (delta)')
-plot_df = plot_df[plot_df['Reaction'] != 'R_ATPS4m']
-plot_df = plot_df[plot_df['flux (delta)'].abs() > 1e-1]
+plot_df = plot_df[plot_df['flux (delta)'].abs() > 1e-6]
 plot_df['flux (KO)'] = [fluxes.ix[i, 'KO'] for i in plot_df['Reaction']]
 plot_df['flux (WT)'] = [fluxes.ix[i, 'WT'] for i in plot_df['Reaction']]
 plot_df['in_proteomics'] = [int(i in proteomics.index) for i in plot_df['Enzyme']]
 plot_df['in_transcriptomics'] = [int(i in transcriptomics.index) for i in plot_df['Enzyme']]
-plot_df.to_csv('./data/fluxes_phospho_table.csv', index=False)
-print plot_df.sort_values('phospho (logfc)')
+plot_df.ix[plot_df['flux (delta)'].abs().sort_values(ascending=False).index].to_csv('./data/fluxes_phospho_table.csv', index=False)
+print plot_df.ix[plot_df['flux (delta)'].abs().sort_values(ascending=False).index]
 
-# # Export table
-# env = Environment(loader=FileSystemLoader('.'))
-# template = env.get_template('./files/table_template.html')
-#
-# html_out = template.render({
-#     'title': 'Putative regulatory phosphorylation-sites',
-#     'dataframe': plot_df.to_html()
-# })
-#
-# HTML(string=html_out).write_pdf('./reports/regulatory_psites_table.pdf')
+
+# -- Hypergeometric test
+background = {i for i in phosphoproteomics.index if i.split('_')[0] in g_enzymes}
+signature = {i for i in r_sites['res'] if i in background and ((i.split('_')[0] in g_to_r) and ((fluxes.ix[g_to_r[i.split('_')[0]], 'delta'] != 0).sum() > 0))}
+sublist = {i for i in plot_df['Psite']}
+
+pval = hypergeom.sf(
+    len(sublist.intersection(signature)),
+    len(background),
+    len(background.intersection(signature)),
+    len(sublist)
+)
+print('Hypergeometric test p-value: %.2f' % pval)
