@@ -86,6 +86,7 @@ de_proteomics['fdr'] = multipletests(de_proteomics['pval'], method='fdr_bh')[1]
 
 # - Export protein level proteomics
 de_proteomics.to_csv('./data/uok262_proteomics_labelfree_processed_fc.csv')
+# de_proteomics = read_csv('./data/uok262_proteomics_labelfree_processed_fc.csv', index_col=0)
 print de_proteomics.sort_values('fdr')
 
 
@@ -209,6 +210,7 @@ de_phosphoproteomics['fdr'] = multipletests(de_phosphoproteomics['pval'], method
 
 # - Export p-site level phosphoproteomics
 de_phosphoproteomics.to_csv('./data/uok262_phosphoproteomics_labelfree_processed_fc.csv')
+# de_phosphoproteomics = read_csv('./data/uok262_phosphoproteomics_labelfree_processed_fc.csv', index_col=0)
 print de_phosphoproteomics.sort_values('fdr')
 
 

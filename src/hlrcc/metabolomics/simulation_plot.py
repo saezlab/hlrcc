@@ -78,23 +78,32 @@ print '[INFO] Plot done'
 cmap = sns.diverging_palette(10, 220, sep=5, n=20, as_cmap=True)
 
 # Flux pathway heatmap
-plot_df = fluxes.ix[rpathways['glycolysis'] + rpathways['mitochondria']].drop(['R_CO2tm', 'R_ASPTAm', 'R_ASPTA'])
-plot_df = plot_df[plot_df['delta'].abs() > 1e-5]
+plot_df = fluxes.ix[rpathways['glycolysis'] + rpathways['mitochondria']].drop(['R_CO2tm', 'R_ASPTAm', 'R_ASPTA']).abs().drop('delta', axis=1)
+plot_df['Delta'] = plot_df['UOK262'] - plot_df['UOK262pFH']
+plot_df = plot_df[plot_df['Delta'].abs() > 1e-5]
 
 pal = dict(zip(*(['glycolysis', 'mitochondria'], sns.color_palette('Set2', n_colors=6).as_hex())))
 rcol = Series({i: pal[p] for i in plot_df.index for p in rpathways if i in rpathways[p]}, name='')
 
 plot_df.index = [i[2:] for i in plot_df.index]
 
+# Plot
+fig, axn = plt.subplots(1, 2, sharey=True)
 sns.set(style='white', context='paper', font_scale=.5, rc={'axes.linewidth': .3, 'xtick.major.width': .3, 'ytick.major.width': .3})
-g = sns.heatmap(plot_df, linewidths=.5, mask=(plot_df == 0), cmap=cmap, square=True)
-plt.gcf().set_size_inches(.5, 4.5)
+
+g = sns.heatmap(plot_df.drop('Delta', axis=1), linewidths=.5, mask=(plot_df.drop('Delta', axis=1) == 0), cmap='Blues', square=True, ax=axn.flat[0])
 plt.setp(g.get_yticklabels(), rotation=0)
 plt.setp(g.xaxis.get_majorticklabels(), rotation=90)
+
+g = sns.heatmap(plot_df[['Delta']], linewidths=.5, mask=(plot_df[['Delta']] == 0), cmap='coolwarm_r', square=True, ax=axn.flat[1])
+plt.setp(g.get_yticklabels(), rotation=0)
+plt.setp(g.xaxis.get_majorticklabels(), rotation=90)
+
+# fig.tight_layout(rect=[0, .2, .9, 1])
+plt.gcf().set_size_inches(1.5, 4.5)
 plt.savefig('./reports/flux_heatmap.pdf', bbox_inches='tight')
 plt.close('all')
 print '[INFO] Plot exported'
-
 
 # Exchange reactions
 plot_df = fluxes.ix[{r for r in fluxes.index if r.startswith('R_EX_')}].sort('UOK262').dropna()

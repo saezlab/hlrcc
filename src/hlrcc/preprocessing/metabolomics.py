@@ -106,9 +106,9 @@ fdr_thres = 0.05
 plot_df = core[core_ttest[core_ttest['fdr'] < fdr_thres]['metabolite']].reset_index().drop('index', axis=1).set_index('condition').unstack().reset_index()
 plot_df.columns = ['metabolite', 'condition', 'rate']
 plot_df = plot_df.sort_values('rate', ascending=False)
-plot_df['metabolite'] = [i.capitalize() for i in plot_df['metabolite']]
+plot_df['metabolite'] = ['alpha-ketoglutarate' if i == 'aKG' else i.capitalize() for i in plot_df['metabolite']]
 
-order = [i.capitalize() for i in core_ttest[core_ttest['fdr'] < fdr_thres].sort('diff', ascending=False)['metabolite']]
+order = ['alpha-ketoglutarate' if i == 'aKG' else i.capitalize() for i in core_ttest[core_ttest['fdr'] < fdr_thres].sort('diff', ascending=False)['metabolite']]
 
 cpal = {'UOK262': u'#34495e', 'UOK262pFH': u'#919daa'}
 

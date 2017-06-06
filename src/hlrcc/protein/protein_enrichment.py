@@ -28,8 +28,8 @@ signatures = {
 # sig = 'MITOCHONDRIAL_RESPIRATORY_CHAIN_COMPLEX_I'
 # gsea(dataset, signatures['CC'][sig], 1000, './reports/gsea_CC_plot.pdf', sig.lower().replace('_', ' ').capitalize())
 
-# Corum
-corum, corum_n = get_complexes_dict(), get_complexes_name()
+# # Corum
+# corum, corum_n = get_complexes_dict(), get_complexes_name()
 
 # Metabolic pathways
 gmap = read_csv('./files/non_alt_loci_set.txt', sep='\t')
@@ -47,6 +47,8 @@ p_reactions = DataFrame([{'r': r, 'p': model.reactions[r].metadata['SUBSYSTEM']}
 p_reactions = p_reactions.groupby('p')['r'].agg(lambda x: set(x)).to_dict()
 p_reactions_genes = {p: {g for r in p_reactions[p] if r in r_genes for g in r_genes[r]} for p in p_reactions}
 
+DataFrame([{'pathway': p, 'gene': g} for p in p_reactions_genes for g in p_reactions_genes[p]]).to_csv('/Users/eg14/Downloads/recon2.2_pathways_genes.csv', index=False)
+
 
 # -- Enrichment analysis
 nrand, dataset = 1000, proteomics.to_dict()
@@ -57,12 +59,12 @@ df_enrichment = DataFrame([{'type': t, 'signature': s, 'length': l, 'escore': es
 df_enrichment.sort(['escore']).to_csv('./files/gsea_proteomics_goterms.csv', index=False)
 print df_enrichment[df_enrichment['length'] >= 3].sort(['escore'])
 
-# Protein complexes enrichment
-df_enrichment_complexes = [(c, len(sig.intersection(dataset)), gsea(dataset, sig, nrand)) for c, sig in corum.items()]
-df_enrichment_complexes = DataFrame([{'complex': c, 'length': l, 'escore': es, 'pvalue': pval} for c, l, (es, pval) in df_enrichment_complexes]).dropna()
-df_enrichment_complexes['name'] = [corum_n[i] for i in df_enrichment_complexes['complex']]
-df_enrichment_complexes.sort(['escore']).to_csv('./files/gsea_proteomics_corum.csv', index=False)
-print df_enrichment_complexes[df_enrichment_complexes['length'] >= 5].sort(['escore'])
+# # Protein complexes enrichment
+# df_enrichment_complexes = [(c, len(sig.intersection(dataset)), gsea(dataset, sig, nrand)) for c, sig in corum.items()]
+# df_enrichment_complexes = DataFrame([{'complex': c, 'length': l, 'escore': es, 'pvalue': pval} for c, l, (es, pval) in df_enrichment_complexes]).dropna()
+# df_enrichment_complexes['name'] = [corum_n[i] for i in df_enrichment_complexes['complex']]
+# df_enrichment_complexes.sort(['escore']).to_csv('./files/gsea_proteomics_corum.csv', index=False)
+# print df_enrichment_complexes[df_enrichment_complexes['length'] >= 5].sort(['escore'])
 
 # Metabolic pathways enrichment
 df_enrichment_pathways = [(c, len(sig.intersection(dataset)), gsea(dataset, sig, nrand)) for c, sig in p_reactions_genes.items()]

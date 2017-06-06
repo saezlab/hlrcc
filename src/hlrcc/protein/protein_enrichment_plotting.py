@@ -4,7 +4,7 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy.stats.stats import pearsonr
+from scipy.stats.stats import pearsonr, spearmanr
 from pandas import read_csv, DataFrame
 from statsmodels.stats.multitest import multipletests
 
@@ -20,6 +20,7 @@ print e_goterms.sort('fdr')
 plot_df = e_goterms[e_goterms['fdr'] < .05].sort_values('abs_score', ascending=False).head(20)
 plot_df['name'] = [i.replace('_', ' ').lower().capitalize() for i in plot_df['signature']]
 plot_df = plot_df.sort_values('escore')
+plot_df['name'] = [i.replace('chain complex i', 'chain complex I') for i in plot_df['name']]
 print plot_df
 
 pal = dict(zip(*(set(plot_df['type']), sns.color_palette('Set1', n_colors=3).as_hex())))
@@ -71,7 +72,7 @@ plot_df = DataFrame([
 plot_df = plot_df[plot_df['flux'].abs() > 1e-5]
 print plot_df.sort('flux')
 
-cor, pval = pearsonr(plot_df['flux'], plot_df['protein'])
+cor, pval = spearmanr(plot_df['flux'], plot_df['protein'])
 print cor, pval
 
 p_highlight = [
@@ -99,7 +100,7 @@ plt.axvline(0, ls='-', lw=.3, c='gray')
 plt.xlabel('Flux enrichment score')
 plt.ylabel('Protein enrichment score')
 plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-plt.title('Pearson r: %.2f, p-value: %.2e' % (cor, pval))
+plt.title('Spearman r: %.2f, p-value: %.2e' % (cor, pval))
 plt.gcf().set_size_inches(2, 2)
 plt.savefig('./reports/protein_flux_scatter.pdf', bbox_inches='tight')
 plt.close('all')
